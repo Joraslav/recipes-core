@@ -1,0 +1,16 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Recipes: debug",
+    "adapter": "GDB",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/build/Debug/Recipes",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "args": [],
+    "env": {},
+    "stopOnEntry": false,
+  },
+]

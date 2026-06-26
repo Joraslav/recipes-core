@@ -1,0 +1,25 @@
+{
+  "languages": {
+    "C++": {
+      "format_on_save": "on",
+      "formatter": "language_server",
+      "tab_size": 4,
+      "hard_tabs": false,
+    },
+    "Python": {
+      "language_servers": ["ruff", "!basedpyright", "!pyright", "!pylsp"],
+    },
+  },
+  "lsp": {
+    "clangd": {
+      "binary": {
+        "arguments": [
+          "--compile-commands-dir=build/Debug",
+          "--background-index",
+          "--clang-tidy",
+          "--header-insertion=iwyu",
+        ],
+      },
+    },
+  },
+}
