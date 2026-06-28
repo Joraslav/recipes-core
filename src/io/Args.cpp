@@ -70,7 +70,7 @@ namespace {
         args.write_console = false;
         return true;
     }
-    //
+
     if (arg == "--no-json"sv) {
         args.write_json = false;
         return true;
