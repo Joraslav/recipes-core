@@ -52,9 +52,9 @@ TEST_F(TestIOArgs, ParseArgs_HelpFlag_SetsShowHelp) {
 }
 
 TEST_F(TestIOArgs, ParseArgs_CustomOutputs_AppliesFlagsAndPaths) {
-    const std::vector<std::string> args{"recipes", "--short", "--no-console",
-                                        "--json-out", "tmp/r.json",
-                                        "--yaml-out=tmp/r.yaml"};
+    const std::vector<std::string> args{
+        "recipes",    "--short",    "--no-console",
+        "--json-out", "tmp/r.json", "--yaml-out=tmp/r.yaml"};
     const auto argv = BuildArgv(args);
 
     auto parse_result = ParseArgs(std::span(argv));

@@ -2,8 +2,8 @@
 #include "io/IO.hpp"
 #include "types/kitchen/Types.hpp"
 
-#include <iostream>
 #include <initializer_list>
+#include <iostream>
 #include <span>
 #include <string_view>
 #include <vector>
