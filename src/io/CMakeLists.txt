@@ -3,6 +3,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/json)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/yaml)
 
 add_library(_io STATIC
+    Args.cpp
     IO.cpp
 )
 

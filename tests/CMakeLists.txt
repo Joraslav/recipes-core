@@ -30,3 +30,11 @@ ADD_GTEST_TARGET(TestIOJson
 		_io
 		_types
 )
+
+ADD_GTEST_TARGET(TestIOArgs
+	SOURCES
+		TestIOArgs.cpp
+	LINK_LIBS
+		_io
+		_types
+)

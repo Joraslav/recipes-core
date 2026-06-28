@@ -1,16 +1,15 @@
-#include "io/console/Report.hpp"
-#include "io/json/Report.hpp"
-#include "io/yaml/Report.hpp"
+#include "io/Args.hpp"
+#include "io/IO.hpp"
 #include "types/kitchen/Types.hpp"
 
-#include <filesystem>
+#include <iostream>
 #include <initializer_list>
+#include <span>
 #include <string_view>
 #include <vector>
 
 using namespace io;
 using namespace types;
-namespace fs = std::filesystem;
 
 namespace {
 Product MakeProduct(std::string_view name, int amount, Dimension dimension,
@@ -24,7 +23,21 @@ Recipe MakeRecipe(std::string_view name,
 }
 }  // namespace
 
-int main() {
+int main(int argc, const char* const* argv) {
+    auto args_result = ParseArgs(
+        std::span<const char* const>(argv, static_cast<std::size_t>(argc)));
+    if (!args_result.has_value()) {
+        std::cerr << args_result.error() << '\n';
+        std::cerr << BuildUsage(argv[0]);
+        return 2;
+    }
+
+    const Args& args = args_result.value();
+    if (args.show_help) {
+        std::cout << BuildUsage(argv[0]);
+        return 0;
+    }
+
     const std::vector<Recipe> recipes{
         MakeRecipe("Pancake",
                    {
@@ -32,10 +45,12 @@ int main() {
                        MakeProduct("Flour", 150, Dimension::GRAMM),
                    }),
     };
-    const fs::path json_out_path = "data/out.json";
-    const fs::path yaml_out_path = "data/out.yaml";
-    json::WriteRecipesJson(recipes, json_out_path);
-    yaml::WriteRecipesYaml(recipes, yaml_out_path);
-    cli::PrintRecipes(recipes, true);
+
+    auto run_result = RunReports(recipes, args);
+    if (!run_result.has_value()) {
+        std::cerr << run_result.error() << '\n';
+        return 1;
+    }
+
     return 0;
 }
