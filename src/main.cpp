@@ -2,6 +2,7 @@
 #include "io/IO.hpp"
 #include "types/kitchen/Types.hpp"
 
+#include <cstddef>
 #include <initializer_list>
 #include <iostream>
 #include <span>
@@ -24,17 +25,21 @@ Recipe MakeRecipe(std::string_view name,
 }  // namespace
 
 int main(int argc, const char* const* argv) {
-    auto args_result = ParseArgs(
-        std::span<const char* const>(argv, static_cast<std::size_t>(argc)));
+    const auto argv_span =
+        std::span<const char* const>(argv, static_cast<size_t>(argc));
+    const std::string_view program_name =
+        argv_span.empty() ? "recipes" : argv_span.front();
+
+    auto args_result = ParseArgs(argv_span);
     if (!args_result.has_value()) {
         std::cerr << args_result.error() << '\n';
-        std::cerr << BuildUsage(argv[0]);
+        std::cerr << BuildUsage(program_name);
         return 2;
     }
 
-    const Args& args = args_result.value();
+    const Args& args = *args_result;
     if (args.show_help) {
-        std::cout << BuildUsage(argv[0]);
+        std::cout << BuildUsage(program_name);
         return 0;
     }
 

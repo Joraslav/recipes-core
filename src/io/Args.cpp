@@ -10,6 +10,8 @@
 
 using namespace std::string_view_literals;
 
+using io::Args;
+
 namespace {
 
 [[nodiscard]] bool HasPrefix(std::string_view value,
@@ -36,7 +38,7 @@ namespace {
     }
 
     ++index;
-    const std::string_view value = argv[index];
+    const std::string_view value = argv.subspan(index, 1).front();
     if (value.empty() || value.front() == '-') {
         return std::unexpected(
             std::format("Option '{}' requires a value", option_name));
@@ -45,7 +47,7 @@ namespace {
     return value;
 }
 
-[[nodiscard]] bool ApplyFlag(std::string_view arg, io::Args& args) noexcept {
+[[nodiscard]] bool ApplyFlag(std::string_view arg, Args& args) noexcept {
     if (arg == "-h"sv || arg == "--help"sv) {
         args.show_help = true;
         return true;
@@ -119,7 +121,7 @@ std::expected<Args, std::string> ParseArgs(std::span<const char* const> argv) {
     std::size_t index = 1;
     bool skip_next_arg = false;
 
-    for (const char* raw_arg : argv | std::views::drop(1)) {
+    for (const char* const raw_arg : argv | std::views::drop(1)) {
         if (skip_next_arg) {
             skip_next_arg = false;
             ++index;
@@ -133,7 +135,7 @@ std::expected<Args, std::string> ParseArgs(std::span<const char* const> argv) {
             continue;
         }
 
-        const std::size_t current_index = index;
+        const size_t current_index = index;
         auto path_option_result = TryApplyPathOption(argv, index, arg, args);
         if (!path_option_result.has_value()) {
             return std::unexpected(path_option_result.error());

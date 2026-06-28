@@ -13,6 +13,11 @@ target_include_directories(_io
     $<INSTALL_INTERFACE:include>
 )
 
+target_compile_definitions(_io
+    PUBLIC
+    RECIPES_PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
+)
+
 target_link_libraries(_io PUBLIC
     _io_cli
     _io_json

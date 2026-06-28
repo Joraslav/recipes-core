@@ -60,8 +60,8 @@ void PrintRecipes(std::span<const Recipe> recipes, bool is_full_info,
         } else {
             std::println(out, "Ingredients count: {}",
                          recipe.GetIngredients().size());
+            std::println(out, "------------------------");
         }
-        std::println(out, "------------------------");
     }
 }
 

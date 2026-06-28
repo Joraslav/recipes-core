@@ -7,6 +7,7 @@
 #include <iostream>
 #include <ostream>
 #include <span>
+#include <string>
 
 namespace io {
 
