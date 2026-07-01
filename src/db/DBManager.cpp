@@ -8,10 +8,12 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using types::Dates;
@@ -75,14 +77,12 @@ DBManager::DBManager(Database db)
           db_, std::string{PreparedStatements::kSelectRecipeIdByName}),
       delete_recipe_ingredients_by_recipe_id_(
           db_,
-          std::string{
-              PreparedStatements::kDeleteRecipeIngredientsByRecipeId}),
+          std::string{PreparedStatements::kDeleteRecipeIngredientsByRecipeId}),
       insert_recipe_ingredient_(
           db_, std::string{PreparedStatements::kInsertRecipeIngredient}),
       select_recipe_ingredients_by_recipe_id_(
           db_,
-          std::string{
-              PreparedStatements::kSelectRecipeIngredientsByRecipeId}),
+          std::string{PreparedStatements::kSelectRecipeIngredientsByRecipeId}),
       select_all_recipes_with_ingredients_(
           db_,
           std::string{PreparedStatements::kSelectAllRecipesWithIngredients}),
@@ -146,8 +146,8 @@ std::vector<types::Product> DBManager::GetAllProducts() {
         }
 
         products.emplace_back(name, amount, dimension,
-                               Dates{.manufacture = manufacture_days,
-                                     .expiration = expiration_days});
+                              Dates{.manufacture = manufacture_days,
+                                    .expiration = expiration_days});
     }
     return products;
 }

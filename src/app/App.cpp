@@ -13,6 +13,7 @@
 #include <iostream>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 using db::DBManager;

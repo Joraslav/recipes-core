@@ -81,7 +81,8 @@ class DBManager final {
 
     [[nodiscard]] static Database InitDb(std::string_view db_path);
 
-    [[nodiscard]] std::vector<types::Recipe> FetchRecipes(Statement& stmt);
+    [[nodiscard]] static std::vector<types::Recipe> FetchRecipes(
+        Statement& stmt);
 };
 
 }  // namespace db
