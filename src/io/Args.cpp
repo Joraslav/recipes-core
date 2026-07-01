@@ -3,27 +3,24 @@
 #include <cstddef>
 #include <expected>
 #include <format>
-#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
 
 using namespace std::string_view_literals;
 
+using io::AppArgs;
 using io::Args;
+using io::ArgsOut;
+using io::RecipeSelection;
 
 namespace {
-
-[[nodiscard]] bool HasPrefix(std::string_view value,
-                             std::string_view prefix) noexcept {
-    return value.starts_with(prefix);
-}
 
 [[nodiscard]] std::expected<std::string_view, std::string> ReadOptionValue(
     std::span<const char* const> argv, size_t& index, std::string_view arg,
     const char* option_name) {
     const std::string eq_prefix = std::format("{}=", option_name);
-    if (HasPrefix(arg, eq_prefix)) {
+    if (arg.starts_with(eq_prefix)) {
         const auto value = arg.substr(eq_prefix.size());
         if (value.empty()) {
             return std::unexpected(
@@ -54,32 +51,42 @@ namespace {
     }
 
     if (arg == "--full"sv) {
-        args.is_full_info = true;
+        args.out.is_full_info = true;
         return true;
     }
 
     if (arg == "--short"sv) {
-        args.is_full_info = false;
+        args.out.is_full_info = false;
         return true;
     }
 
     if (arg == "--console"sv) {
-        args.write_console = true;
+        args.out.write_console = true;
         return true;
     }
 
     if (arg == "--no-console"sv) {
-        args.write_console = false;
+        args.out.write_console = false;
         return true;
     }
 
     if (arg == "--no-json"sv) {
-        args.write_json = false;
+        args.out.write_json = false;
         return true;
     }
 
     if (arg == "--no-yaml"sv) {
-        args.write_yaml = false;
+        args.out.write_yaml = false;
+        return true;
+    }
+
+    if (arg == "--all-recipes"sv) {
+        args.app.recipe_selection = RecipeSelection::ALL;
+        return true;
+    }
+
+    if (arg == "--cookable"sv) {
+        args.app.recipe_selection = RecipeSelection::COOKABLE;
         return true;
     }
 
@@ -88,24 +95,33 @@ namespace {
 
 [[nodiscard]] std::expected<bool, std::string> TryApplyPathOption(
     std::span<const char* const> argv, size_t& index, std::string_view arg,
-    io::Args& args) {
-    if (arg == "--json-out"sv || HasPrefix(arg, "--json-out="sv)) {
+    Args& args) {
+    if (arg == "--json-out"sv || arg.starts_with("--json-out="sv)) {
         auto value_result = ReadOptionValue(argv, index, arg, "--json-out");
         if (!value_result.has_value()) {
             return std::unexpected(value_result.error());
         }
-        args.write_json = true;
-        args.json_out_path = std::string(value_result.value());
+        args.out.write_json = true;
+        args.out.json_out_path = std::string(value_result.value());
         return true;
     }
 
-    if (arg == "--yaml-out"sv || HasPrefix(arg, "--yaml-out="sv)) {
+    if (arg == "--yaml-out"sv || arg.starts_with("--yaml-out="sv)) {
         auto value_result = ReadOptionValue(argv, index, arg, "--yaml-out");
         if (!value_result.has_value()) {
             return std::unexpected(value_result.error());
         }
-        args.write_yaml = true;
-        args.yaml_out_path = std::string(value_result.value());
+        args.out.write_yaml = true;
+        args.out.yaml_out_path = std::string(value_result.value());
+        return true;
+    }
+
+    if (arg == "--db-path"sv || arg.starts_with("--db-path="sv)) {
+        auto value_result = ReadOptionValue(argv, index, arg, "--db-path");
+        if (!value_result.has_value()) {
+            return std::unexpected(value_result.error());
+        }
+        args.app.db_path = std::string(value_result.value());
         return true;
     }
 
@@ -116,33 +132,24 @@ namespace {
 
 namespace io {
 
+bool HasAnyOutput(const ArgsOut& args) noexcept {
+    return args.write_console || args.write_json || args.write_yaml;
+}
+
 std::expected<Args, std::string> ParseArgs(std::span<const char* const> argv) {
     Args args{};
-    std::size_t index = 1;
-    bool skip_next_arg = false;
-
-    for (const char* const raw_arg : argv | std::views::drop(1)) {
-        if (skip_next_arg) {
-            skip_next_arg = false;
-            ++index;
-            continue;
-        }
-
-        const std::string_view arg = raw_arg;
+    for (std::size_t index = 1; index < argv.size(); ++index) {
+        const std::string_view arg = argv.subspan(index, 1).front();
 
         if (ApplyFlag(arg, args)) {
-            ++index;
             continue;
         }
 
-        const size_t current_index = index;
         auto path_option_result = TryApplyPathOption(argv, index, arg, args);
         if (!path_option_result.has_value()) {
             return std::unexpected(path_option_result.error());
         }
         if (path_option_result.value()) {
-            skip_next_arg = index != current_index;
-            ++index;
             continue;
         }
 
@@ -157,15 +164,18 @@ std::string BuildUsage(std::string_view program_name) {
         "Usage: {} [options]\n"
         "Options:\n"
         "  -h, --help                Show this help\n"
+        "      --db-path <path>      Use SQLite database at path\n"
+        "      --all-recipes         Query all recipes\n"
+        "      --cookable            Query only cookable recipes\n"
         "      --full                Print full recipe details in console\n"
         "      --short               Print only recipe names and ingredient "
         "counts\n"
         "      --console             Enable console output\n"
         "      --no-console          Disable console output\n"
         "      --json-out <path>     Write JSON report to path "
-        "(default: data/out.json)\n"
+        "(default: out/info.json)\n"
         "      --yaml-out <path>     Write YAML report to path "
-        "(default: data/out.yaml)\n"
+        "(default: out/info.yaml)\n"
         "      --no-json             Disable JSON report output\n"
         "      --no-yaml             Disable YAML report output\n",
         program_name);

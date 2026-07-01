@@ -48,8 +48,16 @@
     "save": "all",
   },
   {
-    "label": "Tests: run all",
-    "command": "./scripts/run_tests.sh --build-dir build/Debug --build-type Debug",
+    "label": "Tests: run GTest (Debug)",
+    "command": "./scripts/run_tests.sh --build-type Debug --jobs 4",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "hide": "never",
+    "save": "all",
+  },
+  {
+    "label": "Tests: run GTest (Release)",
+    "command": "./scripts/run_tests.sh --build-type Release --jobs 4",
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "hide": "never",

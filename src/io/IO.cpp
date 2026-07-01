@@ -21,7 +21,7 @@ using namespace io::cli;
 namespace io {
 
 std::expected<void, std::string> RunReports(std::span<const Recipe> recipes,
-                                            const Args& args,
+                                            const ArgsOut& args,
                                             std::ostream& out) {
     if (!args.write_console && !args.write_json && !args.write_yaml) {
         return std::unexpected(

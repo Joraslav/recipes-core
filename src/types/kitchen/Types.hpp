@@ -36,7 +36,7 @@ class Product final {
     void SetExpirationDate(std::chrono::sys_days expiration_date) {
         dates_.expiration = expiration_date;
     }
-    void SetAmount(const int& amount) { amount_ = amount; }
+    void SetAmount(int amount) { amount_ = amount; }
 
     [[nodiscard]] const std::string& GetName() const noexcept { return name_; }
     /**
@@ -54,7 +54,7 @@ class Product final {
     GetExpirationDate() const noexcept {
         return dates_.expiration;
     }
-    [[nodiscard]] const int& GetAmount() const noexcept { return amount_; }
+    [[nodiscard]] int GetAmount() const noexcept { return amount_; }
     [[nodiscard]] const Dates& GetDates() const noexcept { return dates_; }
 
     [[nodiscard]] std::string_view GetDimensionInString() const noexcept {
@@ -75,7 +75,7 @@ class Product final {
         }
     }
 
-    [[nodiscard]] const Dimension& GetDimension() const noexcept {
+    [[nodiscard]] Dimension GetDimension() const noexcept {
         return dimension_;
     }
 

@@ -8,19 +8,19 @@ namespace types {
  * @brief Prepared statements for SQL
  */
 struct PreparedStatements final {
-    static constexpr std::string_view kGreateProductsTable = R"sql(
+    static constexpr std::string_view kCreateProductsTable = R"sql(
 CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     dimension INTEGER NOT NULL,
-    amount_base INTEGER NOT NULL CHECK (amount_base >= 0.0),
+    amount_base INTEGER NOT NULL CHECK (amount_base >= 0),
     manufacture_date DATETIME,
     expiration_date DATETIME,
 UNIQUE(name, dimension)
 );
 )sql";
 
-    static constexpr std::string_view kGreateRecipesTable = R"sql(
+    static constexpr std::string_view kCreateRecipesTable = R"sql(
 CREATE TABLE IF NOT EXISTS recipes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     recipe_id INTEGER NOT NULL,
     product_name TEXT NOT NULL,
     dimension INTEGER NOT NULL,
-    required_amount_base INTEGER NOT NULL CHECK (required_amount_base >= 0.0),
+    required_amount_base INTEGER NOT NULL CHECK (required_amount_base >= 0),
 PRIMARY KEY(recipe_id, product_name, dimension),
 FOREIGN KEY(recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
 );
@@ -74,12 +74,6 @@ ON CONFLICT(recipe_id, product_name, dimension) DO UPDATE SET
         required_amount_base = excluded.required_amount_base;
 )sql";
 
-    static constexpr std::string_view kSelectAllRecipes = R"sql(
-SELECT id, name
-FROM recipes
-ORDER BY name;
-)sql";
-
     static constexpr std::string_view kSelectRecipeIngredientsByRecipeId =
         R"sql(
 SELECT product_name, dimension, required_amount_base
@@ -88,19 +82,27 @@ WHERE recipe_id = ?
 ORDER BY product_name, dimension;
 )sql";
 
-    static constexpr std::string_view kSelectCokableRecipes = R"sql(
-SELECT r.id, r.name
+    static constexpr std::string_view kSelectAllRecipesWithIngredients = R"sql(
+SELECT r.id, r.name, ri.product_name, ri.dimension, ri.required_amount_base
 FROM recipes r
+LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+ORDER BY r.name, ri.product_name, ri.dimension;
+)sql";
+
+    static constexpr std::string_view kSelectCookableRecipesWithIngredients = R"sql(
+SELECT r.id, r.name, ri.product_name, ri.dimension, ri.required_amount_base
+FROM recipes r
+LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
 WHERE NOT EXISTS (
-SELECT 1
-FROM recipe_ingredients ri
-LEFT JOIN products p
-  ON p.name = ri.product_name
- AND p.dimension = ri.dimension
-WHERE ri.recipe_id = r.id
-  AND (p.id IS NULL OR p.amount_base < ri.required_amount_base)
+    SELECT 1
+    FROM recipe_ingredients ri2
+    LEFT JOIN products p
+      ON p.name = ri2.product_name
+     AND p.dimension = ri2.dimension
+    WHERE ri2.recipe_id = r.id
+      AND (p.id IS NULL OR p.amount_base < ri2.required_amount_base)
 )
-ORDER BY r.name;
+ORDER BY r.name, ri.product_name, ri.dimension;
 )sql";
 };
 

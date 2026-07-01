@@ -31,10 +31,25 @@ ADD_GTEST_TARGET(TestIOJson
 		_types
 )
 
+ADD_GTEST_TARGET(TestIOYaml
+	SOURCES
+		TestIOYaml.cpp
+	LINK_LIBS
+		_io
+		_types
+)
+
 ADD_GTEST_TARGET(TestIOArgs
 	SOURCES
 		TestIOArgs.cpp
 	LINK_LIBS
 		_io
 		_types
+)
+
+ADD_GTEST_TARGET(TestApp
+	SOURCES
+		TestApp.cpp
+	LINK_LIBS
+		_app
 )
