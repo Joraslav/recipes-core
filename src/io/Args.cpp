@@ -9,7 +9,6 @@
 
 using namespace std::string_view_literals;
 
-using io::AppArgs;
 using io::Args;
 using io::ArgsOut;
 using io::RecipeSelection;

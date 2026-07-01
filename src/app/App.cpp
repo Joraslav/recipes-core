@@ -29,7 +29,7 @@ namespace {
     if (db_path.empty()) {
         return DBManager{};
     }
-    return DBManager{db_path.string()};
+    return DBManager{std::string_view{db_path.native()}};
 }
 
 }  // namespace

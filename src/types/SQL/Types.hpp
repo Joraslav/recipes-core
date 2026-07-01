@@ -89,7 +89,8 @@ LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
 ORDER BY r.name, ri.product_name, ri.dimension;
 )sql";
 
-    static constexpr std::string_view kSelectCookableRecipesWithIngredients = R"sql(
+    static constexpr std::string_view kSelectCookableRecipesWithIngredients =
+        R"sql(
 SELECT r.id, r.name, ri.product_name, ri.dimension, ri.required_amount_base
 FROM recipes r
 LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id

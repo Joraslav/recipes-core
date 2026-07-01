@@ -6,7 +6,6 @@
 #include "types/kitchen/Types.hpp"
 
 #include <cstdint>
-#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -57,20 +56,30 @@ class DBManager final {
         int64_t recipe_id);
 
  private:
+    // db_ must be declared first: all Statement members reference it.
     Database db_;
 
-    std::optional<Statement> insert_product_;
-    std::optional<Statement> select_all_products_;
-    std::optional<Statement> insert_recipe_if_absent_;
-    std::optional<Statement> select_recipe_id_by_name_;
-    std::optional<Statement> delete_recipe_ingredients_by_recipe_id_;
-    std::optional<Statement> insert_recipe_ingredient_;
-    std::optional<Statement> select_recipe_ingredients_by_recipe_id_;
-    std::optional<Statement> select_all_recipes_with_ingredients_;
-    std::optional<Statement> select_cookable_recipes_with_ingredients_;
+    Statement insert_product_;
+    Statement select_all_products_;
+    Statement insert_recipe_if_absent_;
+    Statement select_recipe_id_by_name_;
+    Statement delete_recipe_ingredients_by_recipe_id_;
+    Statement insert_recipe_ingredient_;
+    Statement select_recipe_ingredients_by_recipe_id_;
+    Statement select_all_recipes_with_ingredients_;
+    Statement select_cookable_recipes_with_ingredients_;
 
-    void CreateSchema();
-    void PrepareStatements();
+    /**
+     * @brief Delegating constructor: accepts an already-initialized Database
+     *        (schema created) and initialises all prepared statements.
+     *
+     * Two-phase init pattern: the public constructors create the schema via
+     * a static helper, then delegate here so that the member initializer list
+     * can construct every Statement directly — no std::optional needed.
+     */
+    explicit DBManager(Database db);
+
+    [[nodiscard]] static Database InitDb(std::string_view db_path);
 
     [[nodiscard]] std::vector<types::Recipe> FetchRecipes(Statement& stmt);
 };

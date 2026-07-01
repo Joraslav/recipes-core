@@ -75,9 +75,7 @@ class Product final {
         }
     }
 
-    [[nodiscard]] Dimension GetDimension() const noexcept {
-        return dimension_;
-    }
+    [[nodiscard]] Dimension GetDimension() const noexcept { return dimension_; }
 
     [[nodiscard]] bool IsFresh() const noexcept {
         if (!dates_.expiration.has_value()) {

@@ -16,6 +16,6 @@ namespace app {
 [[nodiscard]] std::expected<void, std::string> Run(const io::Args& args);
 
 [[nodiscard]] std::expected<void, std::string> Run(const io::Args& args,
-                                                    std::ostream& out);
+                                                   std::ostream& out);
 
 }  // namespace app
