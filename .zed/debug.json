@@ -7,7 +7,7 @@
     "label": "Recipes: debug",
     "adapter": "GDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build/Debug/Recipes",
+    "program": "$ZED_WORKTREE_ROOT/build/Debug/src/examples/AddToDb",
     "cwd": "$ZED_WORKTREE_ROOT",
     "args": [],
     "env": {},

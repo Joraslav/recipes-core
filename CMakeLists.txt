@@ -22,6 +22,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/db)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/io)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/types)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/app)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/examples)
 
 if(BUILD_TESTING)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)

@@ -8,8 +8,10 @@
 
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -32,14 +34,20 @@ void ResetStatement(Statement& statement) {
     statement.clearBindings();
 }
 
-[[nodiscard]] int64_t ToDaysSinceEpoch(std::chrono::sys_days date) noexcept {
-    return date.time_since_epoch().count();
+[[nodiscard]] std::string ToDateString(std::chrono::sys_days date) {
+    const std::chrono::year_month_day ymd{date};
+    return std::format("{:04d}-{:02d}-{:02d}",
+                       static_cast<int>(ymd.year()),
+                       static_cast<unsigned>(ymd.month()),
+                       static_cast<unsigned>(ymd.day()));
 }
 
-[[nodiscard]] std::chrono::sys_days FromStoredDays(
-    int64_t stored_days) noexcept {
-    return std::chrono::sys_days{
-        std::chrono::days{stored_days}};  // NOLINT (missing-includes)
+[[nodiscard]] std::chrono::sys_days FromDateString(
+    const std::string& date_str) {
+    std::chrono::sys_days result;
+    std::istringstream ss(date_str);
+    std::chrono::from_stream(ss, "%Y-%m-%d", result);
+    return result;
 }
 
 }  // namespace
@@ -102,13 +110,13 @@ void DBManager::InsertProduct(const types::Product& product) {
     insert_product_.bind(3, product.GetAmount());
 
     if (dates.manufacture.has_value()) {
-        insert_product_.bind(4, ToDaysSinceEpoch(dates.manufacture.value()));
+        insert_product_.bind(4, ToDateString(dates.manufacture.value()));
     } else {
         insert_product_.bind(4, nullptr);
     }
 
     if (dates.expiration.has_value()) {
-        insert_product_.bind(5, ToDaysSinceEpoch(dates.expiration.value()));
+        insert_product_.bind(5, ToDateString(dates.expiration.value()));
     } else {
         insert_product_.bind(5, nullptr);
     }
@@ -138,11 +146,11 @@ std::vector<types::Product> DBManager::GetAllProducts() {
         std::optional<std::chrono::sys_days> expiration_days = std::nullopt;
         if (!select_all_products_.getColumn(3).isNull()) {
             manufacture_days =
-                FromStoredDays(select_all_products_.getColumn(3).getInt64());
+                FromDateString(select_all_products_.getColumn(3).getString());
         }
         if (!select_all_products_.getColumn(4).isNull()) {
             expiration_days =
-                FromStoredDays(select_all_products_.getColumn(4).getInt64());
+                FromDateString(select_all_products_.getColumn(4).getString());
         }
 
         products.emplace_back(name, amount, dimension,

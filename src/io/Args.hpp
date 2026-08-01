@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #ifndef RECIPES_PROJECT_ROOT

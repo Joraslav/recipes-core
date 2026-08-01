@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS products (
     name TEXT NOT NULL,
     dimension INTEGER NOT NULL,
     amount_base INTEGER NOT NULL CHECK (amount_base >= 0),
-    manufacture_date DATETIME,
-    expiration_date DATETIME,
+    manufacture_date DATE,
+    expiration_date DATE,
 UNIQUE(name, dimension)
 );
 )sql";
