@@ -1,4 +1,4 @@
-#include "db/DBManager.hpp"
+#include "DBManager.hpp"
 #include "types/kitchen/Types.hpp"
 
 #include <array>

@@ -2,7 +2,7 @@
 
 #include "SQLiteCpp/Exception.h"
 
-#include "db/DBManager.hpp"
+#include "DBManager.hpp"
 #include "io/Args.hpp"
 #include "io/IO.hpp"
 #include "types/kitchen/Types.hpp"

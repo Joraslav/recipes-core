@@ -36,8 +36,7 @@ void ResetStatement(Statement& statement) {
 
 [[nodiscard]] std::string ToDateString(std::chrono::sys_days date) {
     const std::chrono::year_month_day ymd{date};
-    return std::format("{:04d}-{:02d}-{:02d}",
-                       static_cast<int>(ymd.year()),
+    return std::format("{:04d}-{:02d}-{:02d}", static_cast<int>(ymd.year()),
                        static_cast<unsigned>(ymd.month()),
                        static_cast<unsigned>(ymd.day()));
 }

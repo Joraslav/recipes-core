@@ -9,8 +9,10 @@ add_library(_io STATIC
 
 target_include_directories(_io
     PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/io>
     $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:include/io>
 )
 
 target_compile_definitions(_io

@@ -4,7 +4,7 @@ add_library(_types INTERFACE)
 
 target_include_directories(_types
  INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
