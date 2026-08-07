@@ -9,11 +9,10 @@
 
 #include <expected>
 #include <filesystem>
-#include <format>
 #include <iostream>
 #include <ostream>
-#include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 using db::DBManager;
@@ -37,7 +36,8 @@ namespace {
 
 namespace app {
 
-std::expected<std::vector<Recipe>, std::string> Execute(const AppArgs& args) {
+std::expected<std::vector<Recipe>, std::error_code> Execute(
+    const AppArgs& args) {
     try {
         DBManager db_manager = CreateDbManager(args.db_path);
 
@@ -53,16 +53,15 @@ std::expected<std::vector<Recipe>, std::string> Execute(const AppArgs& args) {
         }
         return db_manager.GetAllRecipes();
     } catch (const SQLite::Exception& ex) {
-        return std::unexpected(
-            std::format("Database operation failed: {}", ex.what()));
+        return std::unexpected(std::make_error_code(std::errc::io_error));
     }
 }
 
-std::expected<void, std::string> Run(const Args& args) {
+std::expected<void, std::error_code> Run(const Args& args) {
     return Run(args, std::cout);
 }
 
-std::expected<void, std::string> Run(const Args& args, std::ostream& out) {
+std::expected<void, std::error_code> Run(const Args& args, std::ostream& out) {
     if (args.show_help) {
         return {};
     }

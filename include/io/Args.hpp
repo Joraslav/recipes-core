@@ -49,6 +49,9 @@ struct Args final {
 [[nodiscard]] std::expected<Args, std::string> ParseArgs(
     std::span<const char* const> argv);
 
+[[nodiscard]] std::expected<Args, std::string> ParseArgs(
+    std::span<const std::string_view> argv);
+
 [[nodiscard]] std::string BuildUsage(std::string_view program_name);
 
 }  // namespace io

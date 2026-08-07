@@ -16,7 +16,7 @@ using io::RecipeSelection;
 namespace {
 
 [[nodiscard]] std::expected<std::string_view, std::string> ReadOptionValue(
-    std::span<const char* const> argv, size_t& index, std::string_view arg,
+    std::span<const std::string_view> argv, size_t& index, std::string_view arg,
     const char* option_name) {
     const std::string eq_prefix = std::format("{}=", option_name);
     if (arg.starts_with(eq_prefix)) {
@@ -93,7 +93,7 @@ namespace {
 }
 
 [[nodiscard]] std::expected<bool, std::string> TryApplyPathOption(
-    std::span<const char* const> argv, size_t& index, std::string_view arg,
+    std::span<const std::string_view> argv, size_t& index, std::string_view arg,
     Args& args) {
     if (arg == "--json-out"sv || arg.starts_with("--json-out="sv)) {
         auto value_result = ReadOptionValue(argv, index, arg, "--json-out");
@@ -136,6 +136,16 @@ bool HasAnyOutput(const ArgsOut& args) noexcept {
 }
 
 std::expected<Args, std::string> ParseArgs(std::span<const char* const> argv) {
+    std::vector<std::string_view> in_args;
+    in_args.reserve(argv.size());
+    for (const char* arg : argv) {
+        in_args.emplace_back(arg);
+    }
+    return ParseArgs(std::span<const std::string_view>(in_args));
+}
+
+std::expected<Args, std::string> ParseArgs(
+    std::span<const std::string_view> argv) {
     Args args{};
     for (std::size_t index = 1; index < argv.size(); ++index) {
         const std::string_view arg = argv.subspan(index, 1).front();

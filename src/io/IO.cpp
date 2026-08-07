@@ -6,12 +6,10 @@
 #include "io/yaml/Report.hpp"
 #include "types/kitchen/Types.hpp"
 
-#include <exception>
 #include <expected>
-#include <format>
 #include <ostream>
 #include <span>
-#include <string>
+#include <system_error>
 
 using types::Recipe;
 using namespace io::json;
@@ -20,30 +18,30 @@ using namespace io::cli;
 
 namespace io {
 
-std::expected<void, std::string> RunReports(std::span<const Recipe> recipes,
-                                            const ArgsOut& args,
-                                            std::ostream& out) {
+std::expected<void, std::error_code> RunReports(std::span<const Recipe> recipes,
+                                                const ArgsOut& args,
+                                                std::ostream& out) {
     if (!args.write_console && !args.write_json && !args.write_yaml) {
         return std::unexpected(
-            "No output selected. Enable at least one of console/json/yaml "
-            "outputs.");
+            std::make_error_code(std::errc::invalid_argument));
     }
 
-    try {
-        if (args.write_json) {
-            WriteRecipesJson(recipes, args.json_out_path);
+    if (args.write_json) {
+        auto json_result = WriteRecipesJson(recipes, args.json_out_path);
+        if (!json_result.has_value()) {
+            return std::unexpected(json_result.error());
         }
+    }
 
-        if (args.write_yaml) {
-            WriteRecipesYaml(recipes, args.yaml_out_path);
+    if (args.write_yaml) {
+        auto yaml_result = WriteRecipesYaml(recipes, args.yaml_out_path);
+        if (!yaml_result.has_value()) {
+            return std::unexpected(yaml_result.error());
         }
+    }
 
-        if (args.write_console) {
-            PrintRecipes(recipes, args.is_full_info, out);
-        }
-    } catch (const std::exception& ex) {
-        return std::unexpected(
-            std::format("Failed to produce reports: {}", ex.what()));
+    if (args.write_console) {
+        PrintRecipes(recipes, args.is_full_info, out);
     }
 
     return {};

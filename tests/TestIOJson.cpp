@@ -4,11 +4,11 @@
 #include "types/kitchen/Types.hpp"
 
 #include <chrono>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -68,11 +68,14 @@ class TestIOJson : public ::testing::Test {
     fs::path temp_dir_;
 };
 
-TEST_F(TestIOJson, WriteProductsJson_EmptyPath_ThrowsInvalidArgument) {
+TEST_F(TestIOJson, WriteProductsJson_EmptyPath_ReturnsInvalidArgument) {
     const std::vector<Product> products{
         MakeProduct("Milk", 2, Dimension::LITER)};
 
-    EXPECT_THROW(WriteProductsJson(products), std::invalid_argument);
+    const auto result = WriteProductsJson(products);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(),
+              std::make_error_code(std::errc::invalid_argument));
 }
 
 TEST_F(TestIOJson, WriteProductsJson_ValidPath_WritesJsonFile) {
@@ -85,7 +88,8 @@ TEST_F(TestIOJson, WriteProductsJson_ValidPath_WritesJsonFile) {
         Dates{.manufacture = manufacture, .expiration = expiration})};
     const fs::path out_path = TempDir() / "products.json";
 
-    ASSERT_NO_THROW(WriteProductsJson(products, out_path));
+    const auto result = WriteProductsJson(products, out_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message();
     ASSERT_TRUE(fs::exists(out_path));
 
     const std::string json = ReadAll(out_path);
@@ -102,7 +106,8 @@ TEST_F(TestIOJson, WriteProductsJson_NestedPath_CreatesParentDirectories) {
     };
     const fs::path out_path = TempDir() / "nested" / "deep" / "products.json";
 
-    ASSERT_NO_THROW(WriteProductsJson(products, out_path));
+    const auto result = WriteProductsJson(products, out_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message();
     EXPECT_TRUE(fs::exists(out_path.parent_path()));
     EXPECT_TRUE(fs::exists(out_path));
 }
@@ -113,7 +118,8 @@ TEST_F(TestIOJson, WriteRecipesJson_ValidPath_WritesJsonFileWithIngredients) {
                            MakeProduct("Tea leaf", 5, Dimension::GRAMM)})};
     const fs::path out_path = TempDir() / "recipes.json";
 
-    ASSERT_NO_THROW(WriteRecipesJson(recipes, out_path));
+    const auto result = WriteRecipesJson(recipes, out_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message();
     ASSERT_TRUE(fs::exists(out_path));
 
     const std::string json = ReadAll(out_path);
@@ -123,19 +129,23 @@ TEST_F(TestIOJson, WriteRecipesJson_ValidPath_WritesJsonFileWithIngredients) {
     EXPECT_NE(json.find("\"name\":\"Tea leaf\""), std::string::npos);
 }
 
-TEST_F(TestIOJson, WriteRecipesJson_EmptyPath_ThrowsInvalidArgument) {
+TEST_F(TestIOJson, WriteRecipesJson_EmptyPath_ReturnsInvalidArgument) {
     const std::vector<Recipe> recipes{MakeRecipe("Tea")};
 
-    EXPECT_THROW(WriteRecipesJson(recipes), std::invalid_argument);
+    const auto result = WriteRecipesJson(recipes);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(),
+              std::make_error_code(std::errc::invalid_argument));
 }
 
-TEST_F(TestIOJson, WriteProductsJson_PathIsDirectory_ThrowsRuntimeError) {
+TEST_F(TestIOJson, WriteProductsJson_PathIsDirectory_ReturnsError) {
     const std::vector<Product> products{
         MakeProduct("Salt", 10, Dimension::GRAMM),
     };
     const fs::path out_path = TempDir();
 
-    EXPECT_THROW(WriteProductsJson(products, out_path), std::runtime_error);
+    const auto result = WriteProductsJson(products, out_path);
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST_F(TestIOJson, WriteProductsJson_SamePathTwice_SecondWriteOverwritesFile) {
@@ -147,8 +157,8 @@ TEST_F(TestIOJson, WriteProductsJson_SamePathTwice_SecondWriteOverwritesFile) {
         MakeProduct("Flour", 500, Dimension::GRAMM),
     };
 
-    ASSERT_NO_THROW(WriteProductsJson(first_products, out_path));
-    ASSERT_NO_THROW(WriteProductsJson(second_products, out_path));
+    ASSERT_TRUE(WriteProductsJson(first_products, out_path).has_value());
+    ASSERT_TRUE(WriteProductsJson(second_products, out_path).has_value());
 
     const std::string json = ReadAll(out_path);
     EXPECT_NE(json.find("\"name\":\"Flour\""), std::string::npos);

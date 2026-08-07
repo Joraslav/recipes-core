@@ -37,6 +37,12 @@ mapfile -t cpp_files < <(
 			   -o -name "*.hpp" -o -name "*.hh" -o -name "*.hxx" -o -name "*.h" \)
 	fi
 
+	if [ -d "./include" ]; then
+		find ./include -type f \
+			\( -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" -o -name "*.c" \
+			   -o -name "*.hpp" -o -name "*.hh" -o -name "*.hxx" -o -name "*.h" \)
+	fi
+
 	if [ -d "./tests" ]; then
 		find ./tests -type f \
 			\( -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" -o -name "*.c" \

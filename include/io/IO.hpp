@@ -7,11 +7,11 @@
 #include <iostream>
 #include <ostream>
 #include <span>
-#include <string>
+#include <system_error>
 
 namespace io {
 
-[[nodiscard]] std::expected<void, std::string> RunReports(
+[[nodiscard]] std::expected<void, std::error_code> RunReports(
     std::span<const types::Recipe> recipes, const ArgsOut& args,
     std::ostream& out = std::cout);
 

@@ -4,11 +4,11 @@
 #include "types/kitchen/Types.hpp"
 
 #include <chrono>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -68,11 +68,14 @@ class TestIOYaml : public ::testing::Test {
     fs::path temp_dir_;
 };
 
-TEST_F(TestIOYaml, WriteProductsYaml_EmptyPath_ThrowsInvalidArgument) {
+TEST_F(TestIOYaml, WriteProductsYaml_EmptyPath_ReturnsInvalidArgument) {
     const std::vector<Product> products{
         MakeProduct("Milk", 2, Dimension::LITER)};
 
-    EXPECT_THROW(WriteProductsYaml(products), std::invalid_argument);
+    const auto result = WriteProductsYaml(products);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(),
+              std::make_error_code(std::errc::invalid_argument));
 }
 
 TEST_F(TestIOYaml, WriteProductsYaml_ValidPath_WritesYamlFile) {
@@ -85,7 +88,8 @@ TEST_F(TestIOYaml, WriteProductsYaml_ValidPath_WritesYamlFile) {
         Dates{.manufacture = manufacture, .expiration = expiration})};
     const fs::path out_path = TempDir() / "products.yaml";
 
-    ASSERT_NO_THROW(WriteProductsYaml(products, out_path));
+    const auto result = WriteProductsYaml(products, out_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message();
     ASSERT_TRUE(fs::exists(out_path));
 
     const std::string yaml = ReadAll(out_path);
@@ -104,7 +108,8 @@ TEST_F(TestIOYaml, WriteProductsYaml_NestedPath_CreatesParentDirectories) {
     };
     const fs::path out_path = TempDir() / "nested" / "deep" / "products.yaml";
 
-    ASSERT_NO_THROW(WriteProductsYaml(products, out_path));
+    const auto result = WriteProductsYaml(products, out_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message();
     EXPECT_TRUE(fs::exists(out_path.parent_path()));
     EXPECT_TRUE(fs::exists(out_path));
 }
@@ -115,7 +120,8 @@ TEST_F(TestIOYaml, WriteRecipesYaml_ValidPath_WritesYamlFileWithIngredients) {
                            MakeProduct("Tea leaf", 5, Dimension::GRAMM)})};
     const fs::path out_path = TempDir() / "recipes.yaml";
 
-    ASSERT_NO_THROW(WriteRecipesYaml(recipes, out_path));
+    const auto result = WriteRecipesYaml(recipes, out_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message();
     ASSERT_TRUE(fs::exists(out_path));
 
     const std::string yaml = ReadAll(out_path);
@@ -125,19 +131,23 @@ TEST_F(TestIOYaml, WriteRecipesYaml_ValidPath_WritesYamlFileWithIngredients) {
     EXPECT_NE(yaml.find("name: Tea leaf"), std::string::npos);
 }
 
-TEST_F(TestIOYaml, WriteRecipesYaml_EmptyPath_ThrowsInvalidArgument) {
+TEST_F(TestIOYaml, WriteRecipesYaml_EmptyPath_ReturnsInvalidArgument) {
     const std::vector<Recipe> recipes{MakeRecipe("Tea")};
 
-    EXPECT_THROW(WriteRecipesYaml(recipes), std::invalid_argument);
+    const auto result = WriteRecipesYaml(recipes);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(),
+              std::make_error_code(std::errc::invalid_argument));
 }
 
-TEST_F(TestIOYaml, WriteProductsYaml_PathIsDirectory_ThrowsRuntimeError) {
+TEST_F(TestIOYaml, WriteProductsYaml_PathIsDirectory_ReturnsError) {
     const std::vector<Product> products{
         MakeProduct("Salt", 10, Dimension::GRAMM),
     };
     const fs::path out_path = TempDir();
 
-    EXPECT_THROW(WriteProductsYaml(products, out_path), std::runtime_error);
+    const auto result = WriteProductsYaml(products, out_path);
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST_F(TestIOYaml, WriteProductsYaml_SamePathTwice_SecondWriteOverwritesFile) {
@@ -149,8 +159,8 @@ TEST_F(TestIOYaml, WriteProductsYaml_SamePathTwice_SecondWriteOverwritesFile) {
         MakeProduct("Flour", 500, Dimension::GRAMM),
     };
 
-    ASSERT_NO_THROW(WriteProductsYaml(first_products, out_path));
-    ASSERT_NO_THROW(WriteProductsYaml(second_products, out_path));
+    ASSERT_TRUE(WriteProductsYaml(first_products, out_path).has_value());
+    ASSERT_TRUE(WriteProductsYaml(second_products, out_path).has_value());
 
     const std::string yaml = ReadAll(out_path);
     EXPECT_NE(yaml.find("name: Flour"), std::string::npos);

@@ -8,13 +8,13 @@
 #include <glaze/yaml/write.hpp>
 
 #include <chrono>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <ios>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -108,10 +108,12 @@ namespace {
 }
 
 template <class Value>
-void WriteYamlPayload(const Value& value, const fs::path& out_path) {
+std::expected<void, std::error_code> WriteYamlPayload(
+    const Value& value, const fs::path& out_path) {
     std::string buffer;
     if (const auto ec = glz::write_yaml(value, buffer); ec) {
-        throw std::runtime_error(glz::format_error(ec, buffer));
+        return std::unexpected(
+            std::make_error_code(std::errc::invalid_argument));
     }
 
     const auto parent_path = out_path.parent_path();
@@ -119,43 +121,44 @@ void WriteYamlPayload(const Value& value, const fs::path& out_path) {
         std::error_code ec;
         fs::create_directories(parent_path, ec);
         if (ec) {
-            throw std::runtime_error(
-                std::format("Failed to create output directory '{}': {}",
-                            parent_path.string(), ec.message()));
+            return std::unexpected(std::error_code(ec.value(), ec.category()));
         }
     }
 
     std::ofstream out{out_path, std::ios::out | std::ios::trunc};
     if (!out.is_open()) {
-        throw std::runtime_error(
-            std::format("Failed to open output file '{}'", out_path.string()));
+        return std::unexpected(
+            std::make_error_code(std::errc::no_such_file_or_directory));
     }
 
     out.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
     if (!out.good()) {
-        throw std::runtime_error(
-            std::format("Failed to write output file '{}'", out_path.string()));
+        return std::unexpected(std::make_error_code(std::errc::io_error));
     }
+
+    return {};
 }
 
 }  // namespace
 
 namespace io::yaml {
 
-void WriteProductsYaml(std::span<const Product> products,
-                       const fs::path& out_path) {
+std::expected<void, std::error_code> WriteProductsYaml(
+    std::span<const Product> products, const fs::path& out_path) {
     if (out_path.empty()) {
-        throw std::invalid_argument("WriteProductsYaml: out_path is empty");
+        return std::unexpected(
+            std::make_error_code(std::errc::invalid_argument));
     }
-    WriteYamlPayload(BuildProductViews(products), out_path);
+    return WriteYamlPayload(BuildProductViews(products), out_path);
 }
 
-void WriteRecipesYaml(std::span<const Recipe> recipes,
-                      const fs::path& out_path) {
+std::expected<void, std::error_code> WriteRecipesYaml(
+    std::span<const Recipe> recipes, const fs::path& out_path) {
     if (out_path.empty()) {
-        throw std::invalid_argument("WriteRecipesYaml: out_path is empty");
+        return std::unexpected(
+            std::make_error_code(std::errc::invalid_argument));
     }
-    WriteYamlPayload(BuildRecipeViews(recipes), out_path);
+    return WriteYamlPayload(BuildRecipeViews(recipes), out_path);
 }
 
 }  // namespace io::yaml
