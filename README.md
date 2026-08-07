@@ -215,13 +215,13 @@ The core pieces are also usable from C++ code:
 #include "types/kitchen/Types.hpp"
 
 db::DBManager db;
-db.InsertProduct(types::Product{"Milk", 200, types::Dimension::MILLILITER});
+db.InsertProduct(types::Product{"Milk", 200, types::Dimension::Milliliter});
 db.InsertRecipe(types::Recipe{"Pancake", {
-    types::Product{"Milk", 100, types::Dimension::MILLILITER},
+    types::Product{"Milk", 100, types::Dimension::Milliliter},
 }});
 
 io::Args args;
-args.app.recipe_selection = io::RecipeSelection::COOKABLE;
+args.app.recipe_selection = io::RecipeSelection::Cookable;
 args.out.write_json = false;
 args.out.write_yaml = false;
 app::Run(args);

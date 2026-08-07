@@ -49,8 +49,8 @@ struct DateRange final {
         "Milk", "Bread", "Eggs",   "Butter", "Cheese", "Chicken",
         "Rice", "Pasta", "Tomato", "Apple",  "Banana", "Potato"};
     static constexpr std::array<Dimension, 5> kDimensions = {
-        Dimension::GRAMM, Dimension::KILOGRAMM, Dimension::MILLILITER,
-        Dimension::LITER, Dimension::PIECE};
+        Dimension::Gramm, Dimension::Kilogramm, Dimension::Milliliter,
+        Dimension::Liter, Dimension::Piece};
 
     static std::random_device rd;
     static std::mt19937 gen(rd());

@@ -4,6 +4,7 @@
 
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -14,12 +15,12 @@ using io::RecipeSelection;
 
 class TestIOArgs : public ::testing::Test {
  protected:
-    [[nodiscard]] static std::vector<const char*> BuildArgv(
+    [[nodiscard]] static std::vector<std::string_view> BuildArgv(
         const std::vector<std::string>& values) {
-        std::vector<const char*> argv;
+        std::vector<std::string_view> argv;
         argv.reserve(values.size());
         for (const auto& value : values) {
-            argv.push_back(value.c_str());
+            argv.push_back(value);
         }
         return argv;
     }
@@ -34,7 +35,7 @@ TEST_F(TestIOArgs, ParseArgs_EmptyInput_ReturnsDefaultConfig) {
     ASSERT_TRUE(parse_result.has_value());
     const Args& parsed = parse_result.value();
     EXPECT_FALSE(parsed.show_help);
-    EXPECT_EQ(parsed.app.recipe_selection, RecipeSelection::ALL);
+    EXPECT_EQ(parsed.app.recipe_selection, RecipeSelection::All);
     EXPECT_TRUE(parsed.app.products.empty());
     EXPECT_TRUE(parsed.app.recipes.empty());
     EXPECT_TRUE(parsed.out.is_full_info);
@@ -66,7 +67,7 @@ TEST_F(TestIOArgs, ParseArgs_CustomOutputsAndQuery_AppliesFlagsAndPaths) {
 
     ASSERT_TRUE(parse_result.has_value());
     const Args& parsed = parse_result.value();
-    EXPECT_EQ(parsed.app.recipe_selection, RecipeSelection::COOKABLE);
+    EXPECT_EQ(parsed.app.recipe_selection, RecipeSelection::Cookable);
     EXPECT_EQ(parsed.app.db_path, "tmp/recipes.db");
     EXPECT_FALSE(parsed.out.is_full_info);
     EXPECT_FALSE(parsed.out.write_console);

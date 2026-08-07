@@ -70,7 +70,7 @@ class TestIOYaml : public ::testing::Test {
 
 TEST_F(TestIOYaml, WriteProductsYaml_EmptyPath_ReturnsInvalidArgument) {
     const std::vector<Product> products{
-        MakeProduct("Milk", 2, Dimension::LITER)};
+        MakeProduct("Milk", 2, Dimension::Liter)};
 
     const auto result = WriteProductsYaml(products);
     ASSERT_FALSE(result.has_value());
@@ -84,7 +84,7 @@ TEST_F(TestIOYaml, WriteProductsYaml_ValidPath_WritesYamlFile) {
     const auto expiration = std::chrono::sys_days{
         std::chrono::year{2026} / std::chrono::month{2} / std::chrono::day{3}};
     const std::vector<Product> products{MakeProduct(
-        "Milk", 2, Dimension::LITER,
+        "Milk", 2, Dimension::Liter,
         Dates{.manufacture = manufacture, .expiration = expiration})};
     const fs::path out_path = TempDir() / "products.yaml";
 
@@ -104,7 +104,7 @@ TEST_F(TestIOYaml, WriteProductsYaml_ValidPath_WritesYamlFile) {
 
 TEST_F(TestIOYaml, WriteProductsYaml_NestedPath_CreatesParentDirectories) {
     const std::vector<Product> products{
-        MakeProduct("Salt", 10, Dimension::GRAMM),
+        MakeProduct("Salt", 10, Dimension::Gramm),
     };
     const fs::path out_path = TempDir() / "nested" / "deep" / "products.yaml";
 
@@ -116,8 +116,8 @@ TEST_F(TestIOYaml, WriteProductsYaml_NestedPath_CreatesParentDirectories) {
 
 TEST_F(TestIOYaml, WriteRecipesYaml_ValidPath_WritesYamlFileWithIngredients) {
     const std::vector<Recipe> recipes{
-        MakeRecipe("Tea", {MakeProduct("Water", 200, Dimension::MILLILITER),
-                           MakeProduct("Tea leaf", 5, Dimension::GRAMM)})};
+        MakeRecipe("Tea", {MakeProduct("Water", 200, Dimension::Milliliter),
+                           MakeProduct("Tea leaf", 5, Dimension::Gramm)})};
     const fs::path out_path = TempDir() / "recipes.yaml";
 
     const auto result = WriteRecipesYaml(recipes, out_path);
@@ -142,7 +142,7 @@ TEST_F(TestIOYaml, WriteRecipesYaml_EmptyPath_ReturnsInvalidArgument) {
 
 TEST_F(TestIOYaml, WriteProductsYaml_PathIsDirectory_ReturnsError) {
     const std::vector<Product> products{
-        MakeProduct("Salt", 10, Dimension::GRAMM),
+        MakeProduct("Salt", 10, Dimension::Gramm),
     };
     const fs::path out_path = TempDir();
 
@@ -153,10 +153,10 @@ TEST_F(TestIOYaml, WriteProductsYaml_PathIsDirectory_ReturnsError) {
 TEST_F(TestIOYaml, WriteProductsYaml_SamePathTwice_SecondWriteOverwritesFile) {
     const fs::path out_path = TempDir() / "overwrite.yaml";
     const std::vector<Product> first_products{
-        MakeProduct("Milk", 2, Dimension::LITER),
+        MakeProduct("Milk", 2, Dimension::Liter),
     };
     const std::vector<Product> second_products{
-        MakeProduct("Flour", 500, Dimension::GRAMM),
+        MakeProduct("Flour", 500, Dimension::Gramm),
     };
 
     ASSERT_TRUE(WriteProductsYaml(first_products, out_path).has_value());

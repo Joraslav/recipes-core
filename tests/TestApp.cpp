@@ -54,16 +54,16 @@ class TestApp : public ::testing::Test {
 TEST_F(TestApp, Execute_AllRecipesSelection_ReturnsPersistedRecipes) {
     AppArgs app_args = MakeAppArgs();
     app_args.products = {
-        MakeProduct("Egg"sv, 4, Dimension::PIECE),
-        MakeProduct("Milk"sv, 250, Dimension::MILLILITER),
+        MakeProduct("Egg"sv, 4, Dimension::Piece),
+        MakeProduct("Milk"sv, 250, Dimension::Milliliter),
     };
     app_args.recipes = {
         MakeRecipe(kPancake,
                    {
-                       MakeProduct("Egg"sv, 2, Dimension::PIECE),
-                       MakeProduct("Milk"sv, 100, Dimension::MILLILITER),
+                       MakeProduct("Egg"sv, 2, Dimension::Piece),
+                       MakeProduct("Milk"sv, 100, Dimension::Milliliter),
                    }),
-        MakeRecipe(kOmelet, {MakeProduct("Egg"sv, 3, Dimension::PIECE)}),
+        MakeRecipe(kOmelet, {MakeProduct("Egg"sv, 3, Dimension::Piece)}),
     };
 
     auto run_result = app::Execute(app_args);
@@ -86,20 +86,20 @@ TEST_F(TestApp, Execute_AllRecipesSelection_ReturnsPersistedRecipes) {
 
 TEST_F(TestApp, Execute_CookableSelection_ReturnsOnlyCookableRecipes) {
     AppArgs app_args = MakeAppArgs();
-    app_args.recipe_selection = RecipeSelection::COOKABLE;
+    app_args.recipe_selection = RecipeSelection::Cookable;
     app_args.products = {
-        MakeProduct("Egg"sv, 4, Dimension::PIECE),
-        MakeProduct("Milk"sv, 200, Dimension::MILLILITER),
-        MakeProduct("Flour"sv, 200, Dimension::GRAMM),
+        MakeProduct("Egg"sv, 4, Dimension::Piece),
+        MakeProduct("Milk"sv, 200, Dimension::Milliliter),
+        MakeProduct("Flour"sv, 200, Dimension::Gramm),
     };
     app_args.recipes = {
         MakeRecipe(kPancake,
                    {
-                       MakeProduct("Egg"sv, 2, Dimension::PIECE),
-                       MakeProduct("Milk"sv, 100, Dimension::MILLILITER),
-                       MakeProduct("Flour"sv, 150, Dimension::GRAMM),
+                       MakeProduct("Egg"sv, 2, Dimension::Piece),
+                       MakeProduct("Milk"sv, 100, Dimension::Milliliter),
+                       MakeProduct("Flour"sv, 150, Dimension::Gramm),
                    }),
-        MakeRecipe(kOmelet, {MakeProduct("Egg"sv, 5, Dimension::PIECE)}),
+        MakeRecipe(kOmelet, {MakeProduct("Egg"sv, 5, Dimension::Piece)}),
     };
 
     auto run_result = app::Execute(app_args);
@@ -111,16 +111,16 @@ TEST_F(TestApp, Execute_CookableSelection_ReturnsOnlyCookableRecipes) {
 
 TEST_F(TestApp, Run_ConsoleOutputEnabled_UsesReportSettings) {
     AppArgs app_args = MakeAppArgs();
-    app_args.recipe_selection = RecipeSelection::COOKABLE;
+    app_args.recipe_selection = RecipeSelection::Cookable;
     app_args.products = {
-        MakeProduct("Milk"sv, 200, Dimension::MILLILITER),
-        MakeProduct("Flour"sv, 150, Dimension::GRAMM),
+        MakeProduct("Milk"sv, 200, Dimension::Milliliter),
+        MakeProduct("Flour"sv, 150, Dimension::Gramm),
     };
     app_args.recipes = {
         MakeRecipe(kPancake,
                    {
-                       MakeProduct("Milk"sv, 200, Dimension::MILLILITER),
-                       MakeProduct("Flour"sv, 150, Dimension::GRAMM),
+                       MakeProduct("Milk"sv, 200, Dimension::Milliliter),
+                       MakeProduct("Flour"sv, 150, Dimension::Gramm),
                    }),
     };
 
@@ -140,7 +140,7 @@ TEST_F(TestApp, Run_AllOutputsDisabled_CompletesWithoutPrinting) {
     AppArgs app_args = MakeAppArgs();
     app_args.recipes = {
         MakeRecipe("Tea"sv,
-                   {MakeProduct("Water"sv, 300, Dimension::MILLILITER)}),
+                   {MakeProduct("Water"sv, 300, Dimension::Milliliter)}),
     };
 
     Args args = MakeArgs(std::move(app_args));

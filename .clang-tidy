@@ -70,6 +70,10 @@ CheckOptions:
     value:           aNy_CasE
   - key:             readability-identifier-naming.LocalConstantPrefix
     value:           ''
+  - key:             readability-identifier-naming.ScopedEnumConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumConstantCase
+    value:           CamelCase
 
   - key:             modernize-use-nullptr.NullMacros
     value:           'NULL'

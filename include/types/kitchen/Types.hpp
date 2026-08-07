@@ -17,7 +17,7 @@ struct Dates final {
     std::optional<std::chrono::sys_days> expiration{std::nullopt};
 };
 
-enum class Dimension : uint8_t { GRAMM, KILOGRAMM, MILLILITER, LITER, PIECE };
+enum class Dimension : uint8_t { Gramm, Kilogramm, Milliliter, Liter, Piece };
 
 /**
  * @brief Product metadata
@@ -60,15 +60,15 @@ class Product final {
     [[nodiscard]] std::string_view GetDimensionInString() const noexcept {
         using namespace std::string_view_literals;
         switch (dimension_) {
-            case Dimension::GRAMM:
+            case Dimension::Gramm:
                 return "gr"sv;
-            case Dimension::KILOGRAMM:
+            case Dimension::Kilogramm:
                 return "kg"sv;
-            case Dimension::MILLILITER:
+            case Dimension::Milliliter:
                 return "ml"sv;
-            case Dimension::LITER:
+            case Dimension::Liter:
                 return "l"sv;
-            case Dimension::PIECE:
+            case Dimension::Piece:
                 return "pc"sv;
             default:
                 return ""sv;

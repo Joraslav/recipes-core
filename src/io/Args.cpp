@@ -80,12 +80,12 @@ namespace {
     }
 
     if (arg == "--all-recipes"sv) {
-        args.app.recipe_selection = RecipeSelection::ALL;
+        args.app.recipe_selection = RecipeSelection::All;
         return true;
     }
 
     if (arg == "--cookable"sv) {
-        args.app.recipe_selection = RecipeSelection::COOKABLE;
+        args.app.recipe_selection = RecipeSelection::Cookable;
         return true;
     }
 
@@ -133,15 +133,6 @@ namespace io {
 
 bool HasAnyOutput(const ArgsOut& args) noexcept {
     return args.write_console || args.write_json || args.write_yaml;
-}
-
-std::expected<Args, std::string> ParseArgs(std::span<const char* const> argv) {
-    std::vector<std::string_view> in_args;
-    in_args.reserve(argv.size());
-    for (const char* arg : argv) {
-        in_args.emplace_back(arg);
-    }
-    return ParseArgs(std::span<const std::string_view>(in_args));
 }
 
 std::expected<Args, std::string> ParseArgs(

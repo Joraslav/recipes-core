@@ -20,13 +20,13 @@ namespace io {
     return std::filesystem::path{RECIPES_PROJECT_ROOT} / "out";
 }
 
-enum class RecipeSelection : uint8_t { ALL, COOKABLE };
+enum class RecipeSelection : uint8_t { All, Cookable };
 
 struct AppArgs final {
     std::filesystem::path db_path{GetProjectOutDir() / "data/table.db"};
     std::vector<types::Product> products;
     std::vector<types::Recipe> recipes;
-    RecipeSelection recipe_selection{RecipeSelection::ALL};
+    RecipeSelection recipe_selection{RecipeSelection::All};
 };
 
 struct ArgsOut final {
@@ -45,9 +45,6 @@ struct Args final {
 };
 
 [[nodiscard]] bool HasAnyOutput(const ArgsOut& args) noexcept;
-
-[[nodiscard]] std::expected<Args, std::string> ParseArgs(
-    std::span<const char* const> argv);
 
 [[nodiscard]] std::expected<Args, std::string> ParseArgs(
     std::span<const std::string_view> argv);

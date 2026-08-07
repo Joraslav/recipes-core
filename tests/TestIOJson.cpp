@@ -70,7 +70,7 @@ class TestIOJson : public ::testing::Test {
 
 TEST_F(TestIOJson, WriteProductsJson_EmptyPath_ReturnsInvalidArgument) {
     const std::vector<Product> products{
-        MakeProduct("Milk", 2, Dimension::LITER)};
+        MakeProduct("Milk", 2, Dimension::Liter)};
 
     const auto result = WriteProductsJson(products);
     ASSERT_FALSE(result.has_value());
@@ -84,7 +84,7 @@ TEST_F(TestIOJson, WriteProductsJson_ValidPath_WritesJsonFile) {
     const auto expiration = std::chrono::sys_days{
         std::chrono::year{2026} / std::chrono::month{2} / std::chrono::day{3}};
     const std::vector<Product> products{MakeProduct(
-        "Milk", 2, Dimension::LITER,
+        "Milk", 2, Dimension::Liter,
         Dates{.manufacture = manufacture, .expiration = expiration})};
     const fs::path out_path = TempDir() / "products.json";
 
@@ -102,7 +102,7 @@ TEST_F(TestIOJson, WriteProductsJson_ValidPath_WritesJsonFile) {
 
 TEST_F(TestIOJson, WriteProductsJson_NestedPath_CreatesParentDirectories) {
     const std::vector<Product> products{
-        MakeProduct("Salt", 10, Dimension::GRAMM),
+        MakeProduct("Salt", 10, Dimension::Gramm),
     };
     const fs::path out_path = TempDir() / "nested" / "deep" / "products.json";
 
@@ -114,8 +114,8 @@ TEST_F(TestIOJson, WriteProductsJson_NestedPath_CreatesParentDirectories) {
 
 TEST_F(TestIOJson, WriteRecipesJson_ValidPath_WritesJsonFileWithIngredients) {
     const std::vector<Recipe> recipes{
-        MakeRecipe("Tea", {MakeProduct("Water", 200, Dimension::MILLILITER),
-                           MakeProduct("Tea leaf", 5, Dimension::GRAMM)})};
+        MakeRecipe("Tea", {MakeProduct("Water", 200, Dimension::Milliliter),
+                           MakeProduct("Tea leaf", 5, Dimension::Gramm)})};
     const fs::path out_path = TempDir() / "recipes.json";
 
     const auto result = WriteRecipesJson(recipes, out_path);
@@ -140,7 +140,7 @@ TEST_F(TestIOJson, WriteRecipesJson_EmptyPath_ReturnsInvalidArgument) {
 
 TEST_F(TestIOJson, WriteProductsJson_PathIsDirectory_ReturnsError) {
     const std::vector<Product> products{
-        MakeProduct("Salt", 10, Dimension::GRAMM),
+        MakeProduct("Salt", 10, Dimension::Gramm),
     };
     const fs::path out_path = TempDir();
 
@@ -151,10 +151,10 @@ TEST_F(TestIOJson, WriteProductsJson_PathIsDirectory_ReturnsError) {
 TEST_F(TestIOJson, WriteProductsJson_SamePathTwice_SecondWriteOverwritesFile) {
     const fs::path out_path = TempDir() / "overwrite.json";
     const std::vector<Product> first_products{
-        MakeProduct("Milk", 2, Dimension::LITER),
+        MakeProduct("Milk", 2, Dimension::Liter),
     };
     const std::vector<Product> second_products{
-        MakeProduct("Flour", 500, Dimension::GRAMM),
+        MakeProduct("Flour", 500, Dimension::Gramm),
     };
 
     ASSERT_TRUE(WriteProductsJson(first_products, out_path).has_value());

@@ -24,17 +24,17 @@ class TestKitchenTypes : public ::testing::Test {
 };
 
 TEST_F(TestKitchenTypes, Product_ConstructedWithDefaults_StoresInitialState) {
-    const Product product(kProductName, kDefaultAmount, Dimension::PIECE);
+    const Product product(kProductName, kDefaultAmount, Dimension::Piece);
 
     EXPECT_EQ(product.GetName(), kProductName);
     EXPECT_EQ(product.GetAmount(), kDefaultAmount);
-    EXPECT_EQ(product.GetDimension(), Dimension::PIECE);
+    EXPECT_EQ(product.GetDimension(), Dimension::Piece);
     EXPECT_FALSE(product.GetManufactureDate().has_value());
     EXPECT_FALSE(product.GetExpirationDate().has_value());
 }
 
 TEST_F(TestKitchenTypes, Product_Setters_UpdateFields) {
-    Product product("Placeholder", 1, Dimension::GRAMM);
+    Product product("Placeholder", 1, Dimension::Gramm);
     const auto manufacture_date = std::chrono::sys_days{
         std::chrono::year{2026} / std::chrono::month{2} / std::chrono::day{1}};
     const auto expiration_date = std::chrono::sys_days{
@@ -54,7 +54,7 @@ TEST_F(TestKitchenTypes, Product_Setters_UpdateFields) {
 }
 
 TEST_F(TestKitchenTypes, Product_IsFresh_NoExpirationDate_ReturnsTrue) {
-    const Product product("Salt", 100, Dimension::GRAMM);
+    const Product product("Salt", 100, Dimension::Gramm);
     EXPECT_TRUE(product.IsFresh());
 }
 
@@ -63,7 +63,7 @@ TEST_F(TestKitchenTypes, Product_IsFresh_ExpirationInFuture_ReturnsTrue) {
                               std::chrono::system_clock::now()) +
                           std::chrono::days{1};
     const Product product(
-        "Milk", 1, Dimension::LITER,
+        "Milk", 1, Dimension::Liter,
         Dates{.manufacture = std::nullopt, .expiration = tomorrow});
     EXPECT_TRUE(product.IsFresh());
 }
@@ -73,15 +73,15 @@ TEST_F(TestKitchenTypes, Product_IsFresh_ExpirationInPast_ReturnsFalse) {
                                std::chrono::system_clock::now()) -
                            std::chrono::days{1};
     const Product product(
-        "Milk", 1, Dimension::LITER,
+        "Milk", 1, Dimension::Liter,
         Dates{.manufacture = std::nullopt, .expiration = yesterday});
     EXPECT_FALSE(product.IsFresh());
 }
 
 TEST_F(TestKitchenTypes,
        Recipe_ConstructedWithIngredients_StoresAllIngredients) {
-    const Recipe recipe("Salad", {Product("Tomato", 2, Dimension::PIECE),
-                                  Product("Oil", 20, Dimension::MILLILITER)});
+    const Recipe recipe("Salad", {Product("Tomato", 2, Dimension::Piece),
+                                  Product("Oil", 20, Dimension::Milliliter)});
 
     EXPECT_EQ(recipe.GetName(), "Salad");
     ASSERT_EQ(recipe.GetIngredients().size(), 2U);
@@ -92,7 +92,7 @@ TEST_F(TestKitchenTypes,
 TEST_F(TestKitchenTypes, Recipe_AddIngredient_AppendsSingleIngredient) {
     Recipe recipe("Soup");
 
-    recipe.AddIngredient(Product("Water", 500, Dimension::MILLILITER));
+    recipe.AddIngredient(Product("Water", 500, Dimension::Milliliter));
 
     ASSERT_EQ(recipe.GetIngredients().size(), 1U);
     EXPECT_EQ(recipe.GetIngredients().front().GetName(), "Water");
@@ -102,11 +102,11 @@ TEST_F(TestKitchenTypes, Recipe_AddIngredient_AppendsSingleIngredient) {
 TEST_F(TestKitchenTypes,
        Recipe_AddIngredientsInitializerList_AppendsAllIngredients) {
     Recipe recipe("Porridge");
-    recipe.AddIngredient(Product("Milk", 200, Dimension::MILLILITER));
+    recipe.AddIngredient(Product("Milk", 200, Dimension::Milliliter));
 
     recipe.AddIngredients({
-        Product("Oat", 100, Dimension::GRAMM),
-        Product("Honey", 20, Dimension::GRAMM),
+        Product("Oat", 100, Dimension::Gramm),
+        Product("Honey", 20, Dimension::Gramm),
     });
 
     ASSERT_EQ(recipe.GetIngredients().size(), 3U);
@@ -118,11 +118,11 @@ TEST_F(TestKitchenTypes,
 TEST_F(TestKitchenTypes,
        Recipe_AddIngredientsVector_AppendsIngredientCollection) {
     Recipe recipe("Toast");
-    recipe.AddIngredients({Product("Bread", 2, Dimension::PIECE)});
+    recipe.AddIngredients({Product("Bread", 2, Dimension::Piece)});
 
     std::vector<Product> additional_ingredients{
-        Product("Bread", 1, Dimension::PIECE),
-        Product("Cheese", 30, Dimension::GRAMM),
+        Product("Bread", 1, Dimension::Piece),
+        Product("Cheese", 30, Dimension::Gramm),
     };
 
     recipe.AddIngredients(std::move(additional_ingredients));
@@ -154,12 +154,12 @@ TEST_P(TestKitchenTypesDimensionParameterized,
 INSTANTIATE_TEST_SUITE_P(
     DimensionFormatting, TestKitchenTypesDimensionParameterized,
     ::testing::Values(
-        DimensionCase{.dimension = Dimension::GRAMM, .expected_string = "gr"},
-        DimensionCase{.dimension = Dimension::KILOGRAMM,
+        DimensionCase{.dimension = Dimension::Gramm, .expected_string = "gr"},
+        DimensionCase{.dimension = Dimension::Kilogramm,
                       .expected_string = "kg"},
-        DimensionCase{.dimension = Dimension::MILLILITER,
+        DimensionCase{.dimension = Dimension::Milliliter,
                       .expected_string = "ml"},
-        DimensionCase{.dimension = Dimension::LITER, .expected_string = "l"},
-        DimensionCase{.dimension = Dimension::PIECE, .expected_string = "pc"}));
+        DimensionCase{.dimension = Dimension::Liter, .expected_string = "l"},
+        DimensionCase{.dimension = Dimension::Piece, .expected_string = "pc"}));
 
 }  // namespace

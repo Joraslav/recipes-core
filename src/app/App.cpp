@@ -48,7 +48,7 @@ std::expected<std::vector<Recipe>, std::error_code> Execute(
             db_manager.InsertRecipes(args.recipes);
         }
 
-        if (args.recipe_selection == RecipeSelection::COOKABLE) {
+        if (args.recipe_selection == RecipeSelection::Cookable) {
             return db_manager.GetCookableRecipes();
         }
         return db_manager.GetAllRecipes();

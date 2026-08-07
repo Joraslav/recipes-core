@@ -73,7 +73,7 @@ TEST_F(TestDBManager, InsertProduct_WithDates_PersistsAllFields) {
     const auto expiration = std::chrono::sys_days{
         std::chrono::year{2026} / std::chrono::month{1} / std::chrono::day{10}};
     const Product milk = MakeProduct(
-        "Milk", 1500, Dimension::MILLILITER,
+        "Milk", 1500, Dimension::Milliliter,
         Dates{.manufacture = manufacture, .expiration = expiration});
 
     db_manager.InsertProduct(milk);
@@ -84,7 +84,7 @@ TEST_F(TestDBManager, InsertProduct_WithDates_PersistsAllFields) {
 }
 
 TEST_F(TestDBManager, InsertProduct_WithoutDates_StoresNullDates) {
-    const Product flour = MakeProduct("Flour", 1000, Dimension::GRAMM);
+    const Product flour = MakeProduct("Flour", 1000, Dimension::Gramm);
 
     db_manager.InsertProduct(flour);
 
@@ -96,21 +96,21 @@ TEST_F(TestDBManager, InsertProduct_WithoutDates_StoresNullDates) {
 }
 
 TEST_F(TestDBManager, InsertProduct_OnConflict_UpdatesExistingProduct) {
-    db_manager.InsertProduct(MakeProduct("Egg", 4, Dimension::PIECE));
-    db_manager.InsertProduct(MakeProduct("Egg", 10, Dimension::PIECE));
+    db_manager.InsertProduct(MakeProduct("Egg", 4, Dimension::Piece));
+    db_manager.InsertProduct(MakeProduct("Egg", 10, Dimension::Piece));
 
     const std::vector<Product> products = db_manager.GetAllProducts();
     ASSERT_EQ(products.size(), 1U);
     EXPECT_EQ(products.front().GetName(), "Egg");
     EXPECT_EQ(products.front().GetAmount(), 10);
-    EXPECT_EQ(products.front().GetDimension(), Dimension::PIECE);
+    EXPECT_EQ(products.front().GetDimension(), Dimension::Piece);
 }
 
 TEST_F(TestDBManager, InsertProducts_WithMultipleItems_ReturnsAllProducts) {
     const std::vector<Product> input_products{
-        MakeProduct("Sugar", 300, Dimension::GRAMM),
-        MakeProduct("Water", 2, Dimension::LITER),
-        MakeProduct("Salt", 1, Dimension::KILOGRAMM),
+        MakeProduct("Sugar", 300, Dimension::Gramm),
+        MakeProduct("Water", 2, Dimension::Liter),
+        MakeProduct("Salt", 1, Dimension::Kilogramm),
     };
 
     db_manager.InsertProducts(input_products);
@@ -123,15 +123,15 @@ TEST_F(TestDBManager, InsertProducts_WithMultipleItems_ReturnsAllProducts) {
     bool has_salt = false;
     for (const auto& product : products) {
         if (product.GetName() == "Sugar" && product.GetAmount() == 300 &&
-            product.GetDimension() == Dimension::GRAMM) {
+            product.GetDimension() == Dimension::Gramm) {
             has_sugar = true;
         }
         if (product.GetName() == "Water" && product.GetAmount() == 2 &&
-            product.GetDimension() == Dimension::LITER) {
+            product.GetDimension() == Dimension::Liter) {
             has_water = true;
         }
         if (product.GetName() == "Salt" && product.GetAmount() == 1 &&
-            product.GetDimension() == Dimension::KILOGRAMM) {
+            product.GetDimension() == Dimension::Kilogramm) {
             has_salt = true;
         }
     }
@@ -145,8 +145,8 @@ TEST_F(TestDBManager,
        InsertRecipe_NewRecipeWithIngredients_AppearsInAllRecipes) {
     const Recipe pancake = MakeRecipe(
         kPancake, {
-                      MakeProduct("Milk", 200, Dimension::MILLILITER),
-                      MakeProduct("Flour", 150, Dimension::GRAMM),
+                      MakeProduct("Milk", 200, Dimension::Milliliter),
+                      MakeProduct("Flour", 150, Dimension::Gramm),
                   });
 
     db_manager.InsertRecipe(pancake);
@@ -157,12 +157,12 @@ TEST_F(TestDBManager,
     ASSERT_EQ(recipes.front().GetIngredients().size(), 2U);
 
     const Product* milk =
-        FindIngredient(recipes.front(), "Milk", Dimension::MILLILITER);
+        FindIngredient(recipes.front(), "Milk", Dimension::Milliliter);
     ASSERT_NE(milk, nullptr);
     EXPECT_EQ(milk->GetAmount(), 200);
 
     const Product* flour =
-        FindIngredient(recipes.front(), "Flour", Dimension::GRAMM);
+        FindIngredient(recipes.front(), "Flour", Dimension::Gramm);
     ASSERT_NE(flour, nullptr);
     EXPECT_EQ(flour->GetAmount(), 150);
 }
@@ -171,12 +171,12 @@ TEST_F(TestDBManager,
        InsertRecipe_ExistingRecipe_ReplacesIngredientListForSameName) {
     db_manager.InsertRecipe(MakeRecipe(
         kPancake, {
-                      MakeProduct("Egg", 1, Dimension::PIECE),
-                      MakeProduct("Milk", 100, Dimension::MILLILITER),
+                      MakeProduct("Egg", 1, Dimension::Piece),
+                      MakeProduct("Milk", 100, Dimension::Milliliter),
                   }));
     db_manager.InsertRecipe(
         MakeRecipe(kPancake, {
-                                 MakeProduct("Egg", 2, Dimension::PIECE),
+                                 MakeProduct("Egg", 2, Dimension::Piece),
                              }));
 
     const std::vector<Recipe> recipes = db_manager.GetAllRecipes();
@@ -192,13 +192,13 @@ TEST_F(TestDBManager,
     const std::vector<Recipe> input_recipes{
         MakeRecipe(kPancake,
                    {
-                       MakeProduct("Milk", 250, Dimension::MILLILITER),
-                       MakeProduct("Egg", 2, Dimension::PIECE),
+                       MakeProduct("Milk", 250, Dimension::Milliliter),
+                       MakeProduct("Egg", 2, Dimension::Piece),
                    }),
         MakeRecipe(kOmelet,
                    {
-                       MakeProduct("Egg", 3, Dimension::PIECE),
-                       MakeProduct("Milk", 50, Dimension::MILLILITER),
+                       MakeProduct("Egg", 3, Dimension::Piece),
+                       MakeProduct("Milk", 50, Dimension::Milliliter),
                    }),
     };
 
@@ -220,22 +220,22 @@ TEST_F(TestDBManager,
 TEST_F(TestDBManager,
        GetCookableRecipes_WhenMissingProducts_ReturnsOnlyCookableRecipes) {
     const std::vector<Product> stock{
-        MakeProduct("Egg", 4, Dimension::PIECE),
-        MakeProduct("Milk", 200, Dimension::MILLILITER),
-        MakeProduct("Flour", 300, Dimension::GRAMM),
+        MakeProduct("Egg", 4, Dimension::Piece),
+        MakeProduct("Milk", 200, Dimension::Milliliter),
+        MakeProduct("Flour", 300, Dimension::Gramm),
     };
     db_manager.InsertProducts(stock);
 
     const std::vector<Recipe> recipes_to_insert{
         MakeRecipe(kPancake,
                    {
-                       MakeProduct("Egg", 2, Dimension::PIECE),
-                       MakeProduct("Milk", 100, Dimension::MILLILITER),
-                       MakeProduct("Flour", 150, Dimension::GRAMM),
+                       MakeProduct("Egg", 2, Dimension::Piece),
+                       MakeProduct("Milk", 100, Dimension::Milliliter),
+                       MakeProduct("Flour", 150, Dimension::Gramm),
                    }),
         MakeRecipe(kOmelet,
                    {
-                       MakeProduct("Egg", 5, Dimension::PIECE),
+                       MakeProduct("Egg", 5, Dimension::Piece),
                    }),
     };
     db_manager.InsertRecipes(recipes_to_insert);
@@ -273,23 +273,23 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         CookableScenario{
             .name = "EnoughStockIsCookable",
-            .stock = {MakeProduct("Milk", 500, Dimension::MILLILITER)},
+            .stock = {MakeProduct("Milk", 500, Dimension::Milliliter)},
             .recipe = MakeRecipe(
-                "MilkShake", {MakeProduct("Milk", 300, Dimension::MILLILITER)}),
+                "MilkShake", {MakeProduct("Milk", 300, Dimension::Milliliter)}),
             .expected_cookable = true,
         },
         CookableScenario{
             .name = "InsufficientStockIsNotCookable",
-            .stock = {MakeProduct("Milk", 200, Dimension::MILLILITER)},
+            .stock = {MakeProduct("Milk", 200, Dimension::Milliliter)},
             .recipe = MakeRecipe(
-                "MilkShake", {MakeProduct("Milk", 300, Dimension::MILLILITER)}),
+                "MilkShake", {MakeProduct("Milk", 300, Dimension::Milliliter)}),
             .expected_cookable = false,
         },
         CookableScenario{
             .name = "MissingDimensionIsNotCookable",
-            .stock = {MakeProduct("Sugar", 1, Dimension::KILOGRAMM)},
+            .stock = {MakeProduct("Sugar", 1, Dimension::Kilogramm)},
             .recipe = MakeRecipe("Tea",
-                                 {MakeProduct("Sugar", 500, Dimension::GRAMM)}),
+                                 {MakeProduct("Sugar", 500, Dimension::Gramm)}),
             .expected_cookable = false,
         }),
     [](const testing::TestParamInfo<CookableScenario>& info) {

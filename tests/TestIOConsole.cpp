@@ -43,7 +43,7 @@ TEST_F(TestIOConsole, PrintProducts_EmptyInput_PrintsNoProductsMessage) {
 
 TEST_F(TestIOConsole, PrintProducts_OneProduct_PrintsNameAmountAndDimension) {
     const std::vector<Product> products{
-        MakeProduct("Milk", 2, Dimension::LITER),
+        MakeProduct("Milk", 2, Dimension::Liter),
     };
     std::ostringstream out;
 
@@ -61,8 +61,8 @@ TEST_F(TestIOConsole, PrintRecipes_ShortMode_PrintsOnlyIngredientsCount) {
     const std::vector<Recipe> recipes{
         MakeRecipe("Pancake",
                    {
-                       MakeProduct("Milk", 200, Dimension::MILLILITER),
-                       MakeProduct("Flour", 150, Dimension::GRAMM),
+                       MakeProduct("Milk", 200, Dimension::Milliliter),
+                       MakeProduct("Flour", 150, Dimension::Gramm),
                    }),
     };
     std::ostringstream out;
@@ -83,7 +83,7 @@ TEST_F(TestIOConsole, PrintProducts_WithDates_PrintsFormattedDates) {
                               std::chrono::day{31}};
     const std::vector<Product> products{
         MakeProduct(
-            "Yogurt", 1, Dimension::PIECE,
+            "Yogurt", 1, Dimension::Piece,
             Dates{.manufacture = manufacture, .expiration = expiration}),
     };
     std::ostringstream out;
@@ -101,7 +101,7 @@ TEST_F(TestIOConsole, PrintProducts_ExpiredDate_PrintsFreshNo) {
         std::chrono::year{2000} / std::chrono::month{1} / std::chrono::day{1}};
     const std::vector<Product> products{
         MakeProduct(
-            "Milk", 1, Dimension::LITER,
+            "Milk", 1, Dimension::Liter,
             Dates{.manufacture = std::nullopt, .expiration = expiration}),
     };
     std::ostringstream out;
