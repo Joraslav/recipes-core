@@ -221,9 +221,9 @@ db.InsertRecipe(types::Recipe{"Pancake", {
 }});
 
 io::Args args;
-args.app.recipe_selection = io::RecipeSelection::Cookable;
-args.out.write_json = false;
-args.out.write_yaml = false;
+args.AppMutable().recipe_selection = io::RecipeSelection::Cookable;
+args.OutMutable().write_json = false;
+args.OutMutable().write_yaml = false;
 app::Run(args);
 ```
 

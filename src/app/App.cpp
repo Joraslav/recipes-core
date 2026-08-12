@@ -3,7 +3,7 @@
 #include "SQLiteCpp/Exception.h"
 
 #include "DBManager.hpp"
-#include "io/Args.hpp"
+#include "io/args/Args.hpp"
 #include "io/IO.hpp"
 #include "types/kitchen/Types.hpp"
 
@@ -62,20 +62,23 @@ std::expected<void, std::error_code> Run(const Args& args) {
 }
 
 std::expected<void, std::error_code> Run(const Args& args, std::ostream& out) {
-    if (args.show_help) {
+    if (args.ShowHelp()) {
         return {};
     }
 
-    auto recipes_result = Execute(args.app);
+    const AppArgs& app_args = args.App();
+    const io::ArgsOut& out_args = args.Out();
+
+    auto recipes_result = Execute(app_args);
     if (!recipes_result.has_value()) {
         return std::unexpected(recipes_result.error());
     }
 
-    if (!HasAnyOutput(args.out)) {
+    if (!HasAnyOutput(out_args)) {
         return {};
     }
 
-    return RunReports(recipes_result.value(), args.out, out);
+    return RunReports(recipes_result.value(), out_args, out);
 }
 
 }  // namespace app

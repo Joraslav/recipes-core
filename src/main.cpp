@@ -1,5 +1,5 @@
 #include "app/App.hpp"
-#include "io/Args.hpp"
+#include "io/args/Args.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     }
 
     const io::Args& args = *args_result;
-    if (args.show_help) {
+    if (args.ShowHelp()) {
         std::cout << io::BuildUsage(program_name);
         return 0;
     }
