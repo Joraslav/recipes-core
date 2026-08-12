@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "app/App.hpp"
-#include "io/Args.hpp"
+#include "io/args/Args.hpp"
 #include "types/kitchen/Types.hpp"
 
 #include <algorithm>
@@ -22,12 +22,13 @@ using types::Recipe;
 using namespace std::string_view_literals;
 
 [[nodiscard]] Product MakeProduct(std::string_view name, int amount,
-                                  Dimension dimension, Dates dates = {}) {
+                                  Dimension dimension,
+                                  Dates dates = {}) noexcept {
     return Product{name, amount, dimension, dates};
 }
 
 [[nodiscard]] Recipe MakeRecipe(std::string_view name,
-                                std::initializer_list<Product> ingredients) {
+                                std::initializer_list<Product> ingredients) noexcept {
     return Recipe{name, ingredients};
 }
 
@@ -44,9 +45,9 @@ class TestApp : public ::testing::Test {
 
     [[nodiscard]] static Args MakeArgs(AppArgs app_args) {
         Args args{};
-        args.app = std::move(app_args);
-        args.out.write_json = false;
-        args.out.write_yaml = false;
+        args.AppMutable() = std::move(app_args);
+        args.OutMutable().write_json = false;
+        args.OutMutable().write_yaml = false;
         return args;
     }
 };
@@ -70,16 +71,14 @@ TEST_F(TestApp, Execute_AllRecipesSelection_ReturnsPersistedRecipes) {
 
     ASSERT_TRUE(run_result.has_value());
     ASSERT_EQ(run_result->size(), 2U);
-    const auto pancake_name = kPancake;
-    const auto omelet_name = kOmelet;
-    const auto has_pancake =
-        std::ranges::any_of(*run_result, [pancake_name](const Recipe& recipe) {
-            return recipe.GetName() == pancake_name;
-        });
-    const auto has_omelet =
-        std::ranges::any_of(*run_result, [omelet_name](const Recipe& recipe) {
-            return recipe.GetName() == omelet_name;
-        });
+    
+    const auto has_pancake = std::ranges::any_of(
+        *run_result,
+        [](const Recipe& recipe) { return recipe.GetName() == kPancake; });
+    const auto has_omelet = std::ranges::any_of(
+        *run_result,
+        [](const Recipe& recipe) { return recipe.GetName() == kOmelet; });
+    
     EXPECT_TRUE(has_pancake);
     EXPECT_TRUE(has_omelet);
 }
@@ -125,8 +124,8 @@ TEST_F(TestApp, Run_ConsoleOutputEnabled_UsesReportSettings) {
     };
 
     Args args = MakeArgs(std::move(app_args));
-    args.out.is_full_info = false;
-    args.out.write_console = true;
+    args.OutMutable().is_full_info = false;
+    args.OutMutable().write_console = true;
 
     std::ostringstream out;
     auto run_result = app::Run(args, out);
@@ -144,7 +143,7 @@ TEST_F(TestApp, Run_AllOutputsDisabled_CompletesWithoutPrinting) {
     };
 
     Args args = MakeArgs(std::move(app_args));
-    args.out.write_console = false;
+    args.OutMutable().write_console = false;
 
     std::ostringstream out;
     auto run_result = app::Run(args, out);
