@@ -11,11 +11,12 @@
 namespace app {
 
 [[nodiscard]] std::expected<std::vector<types::Recipe>, std::error_code>
-Execute(const io::AppArgs& args);
+Execute(const io::arg::Args::AppArgs& args);
 
-[[nodiscard]] std::expected<void, std::error_code> Run(const io::Args& args);
+[[nodiscard]] std::expected<void, std::error_code> Run(
+    const io::arg::Args& args);
 
-[[nodiscard]] std::expected<void, std::error_code> Run(const io::Args& args,
-                                                       std::ostream& out);
+[[nodiscard]] std::expected<void, std::error_code> Run(
+    const io::arg::Args& args, std::ostream& out);
 
 }  // namespace app

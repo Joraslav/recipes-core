@@ -2,7 +2,6 @@
 
 #include "types/kitchen/Types.hpp"
 
-#include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <span>
@@ -14,7 +13,7 @@
 #define RECIPES_PROJECT_ROOT "."
 #endif
 
-namespace io {
+namespace io::arg {
 
 [[nodiscard]] inline std::filesystem::path GetProjectDataDir() {
     return std::filesystem::path{RECIPES_PROJECT_ROOT} / "data";
@@ -24,34 +23,37 @@ namespace io {
     return std::filesystem::path{RECIPES_PROJECT_ROOT} / "out";
 }
 
-enum class RecipeSelection : uint8_t { All, Cookable };
-
-struct AppArgs final {
-    RecipeSelection recipe_selection{RecipeSelection::All};
-    std::filesystem::path db_path{GetProjectDataDir() / "table.db"};
-    std::vector<types::Product> products;
-    std::vector<types::Recipe> recipes;
-};
-
-struct ArgsOut final {
-    bool is_full_info{true};
-    bool write_console{true};
-    bool write_json{true};
-    bool write_yaml{true};
-    std::filesystem::path json_out_path{GetProjectOutDir() / "info.json"};
-    std::filesystem::path yaml_out_path{GetProjectOutDir() / "info.yaml"};
-};
-
 /**
  * @brief Parsed command-line arguments for the application.
  */
 class Args final {
  public:
+    struct AppArgs final {
+        types::RecipeSelection recipe_selection{types::RecipeSelection::All};
+        std::filesystem::path db_path{GetProjectDataDir() / "table.db"};
+        std::vector<types::Product> products;
+        std::vector<types::Recipe> recipes;
+    };
+    struct ArgsOut final {
+        bool is_full_info{true};
+        bool write_console{true};
+        bool write_json{true};
+        bool write_yaml{true};
+        std::filesystem::path json_out_path{GetProjectOutDir() / "info.json"};
+        std::filesystem::path yaml_out_path{GetProjectOutDir() / "info.yaml"};
+    };
+
     /**
      * @brief Returns whether help output should be shown.
      * @return `true` if help output is requested.
      */
     [[nodiscard]] bool ShowHelp() const noexcept;
+
+    /*
+     * @brief Set `show_help` on `help_flag`
+     * @param help_flag bool flag to show or not help
+     */
+    void SetHelp(bool help_flag) noexcept;
 
     /**
      * @brief Returns application input arguments.
@@ -91,7 +93,7 @@ class Args final {
  * @param args Output arguments.
  * @return `true` if any output target is enabled.
  */
-[[nodiscard]] bool HasAnyOutput(const ArgsOut& args) noexcept;
+[[nodiscard]] bool HasAnyOutput(const Args::ArgsOut& args) noexcept;
 
 /**
  * @brief Parses CLI arguments into strongly typed options.
@@ -108,4 +110,4 @@ class Args final {
  */
 [[nodiscard]] std::string BuildUsage(std::string_view program_name);
 
-}  // namespace io
+}  // namespace io::arg

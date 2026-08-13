@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../types/kitchen/Types.hpp"
+
 #include <concepts>
 #include <type_traits>
 
@@ -41,5 +43,10 @@ template <typename TLeftUnit, typename TRightUnit>
 concept SameDimension =
     UnitTag<TLeftUnit> && UnitTag<TRightUnit> &&
     std::same_as<typename TLeftUnit::dimension, typename TRightUnit::dimension>;
+
+template <typename TEntity>
+concept ProductOrRecipe =
+    std::same_as<std::remove_cvref_t<TEntity>, types::Product> ||
+    std::same_as<std::remove_cvref_t<TEntity>, types::Recipe>;
 
 }  // namespace concepts

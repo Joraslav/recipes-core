@@ -12,9 +12,9 @@
 
 namespace {
 
-using io::AppArgs;
 using io::Args;
-using io::RecipeSelection;
+using types::RecipeSelection;
+using AppArgs = io::Args::AppArgs;
 using types::Dates;
 using types::Dimension;
 using types::Product;
@@ -27,8 +27,9 @@ using namespace std::string_view_literals;
     return Product{name, amount, dimension, dates};
 }
 
-[[nodiscard]] Recipe MakeRecipe(std::string_view name,
-                                std::initializer_list<Product> ingredients) noexcept {
+[[nodiscard]] Recipe MakeRecipe(
+    std::string_view name,
+    std::initializer_list<Product> ingredients) noexcept {
     return Recipe{name, ingredients};
 }
 
@@ -71,14 +72,14 @@ TEST_F(TestApp, Execute_AllRecipesSelection_ReturnsPersistedRecipes) {
 
     ASSERT_TRUE(run_result.has_value());
     ASSERT_EQ(run_result->size(), 2U);
-    
+
     const auto has_pancake = std::ranges::any_of(
         *run_result,
         [](const Recipe& recipe) { return recipe.GetName() == kPancake; });
     const auto has_omelet = std::ranges::any_of(
         *run_result,
         [](const Recipe& recipe) { return recipe.GetName() == kOmelet; });
-    
+
     EXPECT_TRUE(has_pancake);
     EXPECT_TRUE(has_omelet);
 }

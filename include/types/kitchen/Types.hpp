@@ -136,4 +136,9 @@ class Recipe final {
     std::vector<Product> ingredients_;
 };
 
+/*
+ * @brief Recipe selection options
+ */
+enum class RecipeSelection : uint8_t { All, Cookable };
+
 }  // namespace types

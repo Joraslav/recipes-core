@@ -1,10 +1,14 @@
 #include "Args.hpp"
 
+#include "types/kitchen/Types.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -14,15 +18,56 @@ using namespace std::string_literals;
 using namespace std::string_view_literals;
 namespace fs = std::filesystem;
 
+using namespace io::arg;
+using types::RecipeSelection;
+
 namespace {
 
-constexpr std::array kBoolFlags = {
-    "-h"sv,        "--help"sv,       "--full-info"sv,   "--short"sv,
-    "--console"sv, "--no-console"sv, "--json"sv,        "--no-json"sv,
-    "--yaml"sv,    "--no-yaml"sv,    "--all-recipes"sv, "--cookable"sv};
+struct FlagInfo final {
+    std::string_view
+        name;  // NOLINT(misc-non-private-member-variables-in-classes)
+    enum class Type : uint8_t {
+        Bool,
+        Value,
+        Command
+    } type;  // NOLINT(misc-non-private-member-variables-in-classes)
 
-constexpr std::array kValueFlags = {"--json-out"sv, "--yaml-out"sv,
-                                    "--db-path"sv};
+    constexpr FlagInfo(std::string_view p_name, Type p_type) noexcept
+        : name(p_name), type(p_type) {}
+};
+
+constexpr std::array kFlags = {
+    FlagInfo{"-h"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--help"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--full-info"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--short"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--console"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--no-console"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--json"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--no-json"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--yaml"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--no-yaml"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--all-recipes"sv, FlagInfo::Type::Bool},
+    FlagInfo{"--cookable"sv, FlagInfo::Type::Bool},
+
+    FlagInfo{"--json-out"sv, FlagInfo::Type::Value},
+    FlagInfo{"--yaml-out"sv, FlagInfo::Type::Value},
+    FlagInfo{"--db-path"sv, FlagInfo::Type::Value},
+
+    FlagInfo{"--add-products"sv, FlagInfo::Type::Command},
+    FlagInfo{"--add-recipes"sv, FlagInfo::Type::Command},
+    FlagInfo{"--list-products"sv, FlagInfo::Type::Command},
+    FlagInfo{"--list-recipes"sv, FlagInfo::Type::Command},
+};
+
+[[nodiscard]] std::optional<FlagInfo::Type> GetFlagType(
+    std::string_view option) noexcept {
+    const auto* it = std::ranges::find(kFlags, option, &FlagInfo::name);
+    if (it != kFlags.end()) {
+        return it->type;
+    }
+    return std::nullopt;
+}
 
 [[nodiscard]] std::pair<std::string_view, std::string_view> SplitOption(
     std::string_view token) noexcept {
@@ -33,35 +78,94 @@ constexpr std::array kValueFlags = {"--json-out"sv, "--yaml-out"sv,
     return {token.substr(0, equals_pos), token.substr(equals_pos + 1)};
 }
 
-[[nodiscard]] bool ValidateToken(std::string_view token) {
+[[nodiscard]] bool IsValidToken(std::string_view token) {
     if (!token.starts_with('-')) {
         return false;
     }
     const auto [option, value] = SplitOption(token);
-    if (std::ranges::contains(kValueFlags, option)) {
-        return value.empty();
+    const auto type = GetFlagType(option);
+    if (!type.has_value()) {
+        return false;
     }
-    if (!value.empty()) {
-        return true;
+
+    switch (*type) {
+        case FlagInfo::Type::Value:
+            return !value.empty();
+        case FlagInfo::Type::Bool:
+        case FlagInfo::Type::Command:
+            return value.empty();
+        default:
+            return false;
     }
-    return !std::ranges::contains(kBoolFlags, option);
+}
+
+void SetBoolFlag(Args& args, std::string_view option) noexcept {
+    if (option == "-h"sv || option == "--help"sv) {
+        args.SetHelp(true);
+    }
+    if (option == "--full-info"sv) {
+        args.OutMutable().is_full_info = true;
+    }
+    if (option == "--short"sv) {
+        args.OutMutable().is_full_info = false;
+    }
+    if (option == "--console"sv) {
+        args.OutMutable().write_console = true;
+    }
+    if (option == "--no-console"sv) {
+        args.OutMutable().write_console = false;
+    }
+    if (option == "--json"sv) {
+        args.OutMutable().write_json = true;
+    }
+    if (option == "--no-json"sv) {
+        args.OutMutable().write_json = false;
+    }
+    if (option == "--yaml"sv) {
+        args.OutMutable().write_yaml = true;
+    }
+    if (option == "--no-yaml"sv) {
+        args.OutMutable().write_yaml = false;
+    }
+    if (option == "--all-recipes"sv) {
+        args.AppMutable().recipe_selection = RecipeSelection::All;
+    }
+    if (option == "--cookable"sv) {
+        args.AppMutable().recipe_selection = RecipeSelection::Cookable;
+    }
+}
+
+void SetValueFlag(Args& args,
+                  const std::pair<std::string_view, std::string_view>&
+                      option_value) noexcept {
+    const auto& [option, value] = option_value;
+
+    if (option == "--json-out"sv) {
+        args.OutMutable().json_out_path = fs::path{value};
+    } else if (option == "--yaml-out"sv) {
+        args.OutMutable().yaml_out_path = fs::path{value};
+    } else if (option == "--db-path"sv) {
+        args.AppMutable().db_path = fs::path{value};
+    }
 }
 
 }  // namespace
 
-namespace io {
+namespace io::arg {
 
 bool Args::ShowHelp() const noexcept { return show_help_; }
 
-const AppArgs& Args::App() const noexcept { return app_; }
+void Args::SetHelp(bool help_flag) noexcept { show_help_ = help_flag; }
 
-AppArgs& Args::AppMutable() noexcept { return app_; }
+const Args::AppArgs& Args::App() const noexcept { return app_; }
 
-const ArgsOut& Args::Out() const noexcept { return out_; }
+Args::AppArgs& Args::AppMutable() noexcept { return app_; }
 
-ArgsOut& Args::OutMutable() noexcept { return out_; }
+const Args::ArgsOut& Args::Out() const noexcept { return out_; }
 
-bool HasAnyOutput(const ArgsOut& args) noexcept {
+Args::ArgsOut& Args::OutMutable() noexcept { return out_; }
+
+bool HasAnyOutput(const Args::ArgsOut& args) noexcept {
     return args.write_console || args.write_json || args.write_yaml;
 }
 
@@ -74,67 +178,27 @@ std::expected<Args, std::string> ParseArgs(
 
     for (size_t i = 1; i != argv.size(); ++i) {
         const std::string_view token = argv[i];
-        if (ValidateToken(token)) {
-            return std::unexpected("Unknown argument: "s + std::string(token));
+        if (!IsValidToken(token)) {
+            return std::unexpected(
+                "Unknown argument: "s.append(std::string(token)));
         }
 
         const auto [option, value] = SplitOption(token);
+        const auto type = GetFlagType(option);
+        if (!type.has_value()) {
+            return std::unexpected(
+                "Unknown type for argument: "s.append(std::string(option)));
+        }
 
-        if (option == "-h"sv || option == "--help"sv) {
-            parsed.show_help_ = true;
-            continue;
-        }
-        if (option == "--full-info"sv) {
-            parsed.out_.is_full_info = true;
-            continue;
-        }
-        if (option == "--short"sv) {
-            parsed.out_.is_full_info = false;
-            continue;
-        }
-        if (option == "--console"sv) {
-            parsed.out_.write_console = true;
-            continue;
-        }
-        if (option == "--no-console"sv) {
-            parsed.out_.write_console = false;
-            continue;
-        }
-        if (option == "--json"sv) {
-            parsed.out_.write_json = true;
-            continue;
-        }
-        if (option == "--no-json"sv) {
-            parsed.out_.write_json = false;
-            continue;
-        }
-        if (option == "--yaml"sv) {
-            parsed.out_.write_yaml = true;
-            continue;
-        }
-        if (option == "--no-yaml"sv) {
-            parsed.out_.write_yaml = false;
-            continue;
-        }
-        if (option == "--all-recipes"sv) {
-            parsed.app_.recipe_selection = RecipeSelection::All;
-            continue;
-        }
-        if (option == "--cookable"sv) {
-            parsed.app_.recipe_selection = RecipeSelection::Cookable;
-            continue;
-        }
-        if (option == "--json-out"sv) {
-            parsed.out_.json_out_path = fs::path{value};
-            continue;
-        }
-        if (option == "--yaml-out"sv) {
-            parsed.out_.yaml_out_path = fs::path{value};
-            continue;
-        }
-        if (option == "--db-path"sv) {
-            parsed.app_.db_path = fs::path{value};
-            continue;
+        switch (*type) {
+            case FlagInfo::Type::Value:
+                SetValueFlag(parsed, std::make_pair(option, value));
+                break;
+            case FlagInfo::Type::Bool:
+                SetBoolFlag(parsed, option);
+                break;
+            case FlagInfo::Type::Command:
+                break;
         }
     }
 
@@ -166,4 +230,4 @@ std::string BuildUsage(std::string_view program_name) {
     return usage;
 }
 
-}  // namespace io
+}  // namespace io::arg
