@@ -167,4 +167,31 @@ TEST_F(TestIOYaml, WriteProductsYaml_SamePathTwice_SecondWriteOverwritesFile) {
     EXPECT_EQ(yaml.find("name: Milk"), std::string::npos);
 }
 
+TEST_F(TestIOYaml, WriteItemsYaml_Products_DispatchesToProductsWriter) {
+    const std::vector<Product> products{
+        MakeProduct("Sugar", 1, Dimension::Gramm),
+    };
+    const fs::path out_path = TempDir() / "items_products.yaml";
+
+    const auto result = WriteItemsYaml(std::span(products), out_path);
+
+    ASSERT_TRUE(result.has_value()) << result.error().message();
+    const std::string yaml = ReadAll(out_path);
+    EXPECT_NE(yaml.find("name: Sugar"), std::string::npos);
+}
+
+TEST_F(TestIOYaml, WriteItemsYaml_Recipes_DispatchesToRecipesWriter) {
+    const std::vector<Recipe> recipes{
+        MakeRecipe("Tea", {MakeProduct("Water", 200, Dimension::Milliliter)}),
+    };
+    const fs::path out_path = TempDir() / "items_recipes.yaml";
+
+    const auto result = WriteItemsYaml(std::span(recipes), out_path);
+
+    ASSERT_TRUE(result.has_value()) << result.error().message();
+    const std::string yaml = ReadAll(out_path);
+    EXPECT_NE(yaml.find("name: Tea"), std::string::npos);
+    EXPECT_NE(yaml.find("name: Water"), std::string::npos);
+}
+
 }  // namespace

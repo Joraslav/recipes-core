@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -163,6 +164,33 @@ TEST_F(TestIOJson, WriteProductsJson_SamePathTwice_SecondWriteOverwritesFile) {
     const std::string json = ReadAll(out_path);
     EXPECT_NE(json.find("\"name\":\"Flour\""), std::string::npos);
     EXPECT_EQ(json.find("\"name\":\"Milk\""), std::string::npos);
+}
+
+TEST_F(TestIOJson, WriteItemsJson_Products_DispatchesToProductsWriter) {
+    const std::vector<Product> products{
+        MakeProduct("Sugar", 1, Dimension::Gramm),
+    };
+    const fs::path out_path = TempDir() / "items_products.json";
+
+    const auto result = WriteItemsJson(std::span(products), out_path);
+
+    ASSERT_TRUE(result.has_value()) << result.error().message();
+    const std::string json = ReadAll(out_path);
+    EXPECT_NE(json.find("\"name\":\"Sugar\""), std::string::npos);
+}
+
+TEST_F(TestIOJson, WriteItemsJson_Recipes_DispatchesToRecipesWriter) {
+    const std::vector<Recipe> recipes{
+        MakeRecipe("Tea", {MakeProduct("Water", 200, Dimension::Milliliter)}),
+    };
+    const fs::path out_path = TempDir() / "items_recipes.json";
+
+    const auto result = WriteItemsJson(std::span(recipes), out_path);
+
+    ASSERT_TRUE(result.has_value()) << result.error().message();
+    const std::string json = ReadAll(out_path);
+    EXPECT_NE(json.find("\"name\":\"Tea\""), std::string::npos);
+    EXPECT_NE(json.find("\"name\":\"Water\""), std::string::npos);
 }
 
 }  // namespace
