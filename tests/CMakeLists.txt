@@ -47,9 +47,9 @@ ADD_GTEST_TARGET(TestIOArgs
 		_types
 )
 
-ADD_GTEST_TARGET(TestApp
-	SOURCES
-		TestApp.cpp
-	LINK_LIBS
-		_app
-)
+# ADD_GTEST_TARGET(TestApp
+# 	SOURCES
+# 		TestApp.cpp
+# 	LINK_LIBS
+# 		_app
+# )

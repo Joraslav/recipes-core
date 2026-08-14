@@ -17,6 +17,7 @@
 #include <system_error>
 #include <vector>
 
+using types::Product;
 using types::Recipe;
 using namespace io::json;
 using namespace io::yaml;
@@ -28,6 +29,29 @@ using ArgsOut = io::arg::Args::ArgsOut;
 namespace {
 
 constexpr size_t kMinForParallel = 10;
+
+template <ProductOrRecipe Tv>
+std::expected<void, std::error_code> WriteReports(std::span<const Tv> items,
+                                                  const ArgsOut& args,
+                                                  std::ostream& out) {
+    if (args.write_console) {
+        PrintItems(items, args.is_full_info, out);
+    }
+    if (args.write_json) {
+        auto json_result = WriteItemsJson(items, args.json_out_path);
+        if (!json_result.has_value()) {
+            return std::unexpected(json_result.error());
+        }
+    }
+    if (args.write_yaml) {
+        auto yaml_result = WriteItemsYaml(items, args.yaml_out_path);
+        if (!yaml_result.has_value()) {
+            return std::unexpected(yaml_result.error());
+        }
+    }
+
+    return {};
+}
 
 template <ProductOrRecipe Tv>
 std::expected<void, std::error_code> ParallelWriteReports(
@@ -88,23 +112,24 @@ std::expected<void, std::error_code> ReportRecipes(
         return ParallelWriteReports(recipes, args, out);
     }
 
-    if (args.write_console) {
-        PrintItems(recipes, args.is_full_info, out);
-    }
-    if (args.write_json) {
-        auto json_result = WriteItemsJson(recipes, args.json_out_path);
-        if (!json_result.has_value()) {
-            return std::unexpected(json_result.error());
-        }
-    }
-    if (args.write_yaml) {
-        auto yaml_result = WriteItemsYaml(recipes, args.yaml_out_path);
-        if (!yaml_result.has_value()) {
-            return std::unexpected(yaml_result.error());
-        }
+    return WriteReports(recipes, args, out);
+}
+
+std::expected<void, std::error_code> ReportProducts(
+    std::span<const Product> products, const Args::ArgsOut& args,
+    std::ostream& out) {
+    if (!args.write_console && !args.write_json && !args.write_yaml) {
+        return std::unexpected(
+            std::make_error_code(std::errc::invalid_argument));
     }
 
-    return {};
+    const bool should_run_parallel =
+        products.size() > kMinForParallel && args.write_json && args.write_yaml;
+    if (should_run_parallel) {
+        return ParallelWriteReports(products, args, out);
+    }
+
+    return WriteReports(products, args, out);
 }
 
 }  // namespace io

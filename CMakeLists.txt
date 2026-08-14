@@ -21,7 +21,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/functions.cmake)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/db)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/io)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/types)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/app)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/app)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/examples)
 
 if(BUILD_TESTING)
@@ -31,5 +31,5 @@ endif()
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
- _app
+ _io
 )

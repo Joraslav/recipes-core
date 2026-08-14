@@ -17,8 +17,8 @@ namespace io {
     std::ostream& out = std::cout);
 
 [[nodiscard]] std::expected<void, std::error_code> ReportProducts(
-    std::span<const types::Product>, const arg::Args::ArgsOut& args,
-    std::ostream& = std::cout);
+    std::span<const types::Product> products, const arg::Args::ArgsOut& args,
+    std::ostream& out = std::cout);
 
 template <concepts::ProductOrRecipe Tv>
 [[nodiscard]] std::expected<void, std::error_code> ReportsItems(

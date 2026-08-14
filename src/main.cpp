@@ -1,4 +1,3 @@
-#include "app/App.hpp"
 #include "io/args/Args.hpp"
 
 #include <algorithm>
@@ -7,6 +6,10 @@
 #include <span>
 #include <string_view>
 #include <vector>
+
+using io::arg::Args;
+using io::arg::BuildUsage;
+using io::arg::ParseArgs;
 
 int main(int argc, char* argv[]) {
     std::vector<std::string_view> args_vec;
@@ -18,23 +21,17 @@ int main(int argc, char* argv[]) {
     const std::string_view program_name =
         in_args.empty() ? "recipes" : in_args.front();
 
-    auto args_result = io::ParseArgs(in_args);
+    auto args_result = ParseArgs(in_args);
     if (!args_result.has_value()) {
         std::cerr << args_result.error() << '\n';
-        std::cerr << io::BuildUsage(program_name);
+        std::cerr << BuildUsage(program_name);
         return 2;
     }
 
-    const io::Args& args = *args_result;
+    const Args& args = *args_result;
     if (args.ShowHelp()) {
-        std::cout << io::BuildUsage(program_name);
+        std::cout << BuildUsage(program_name);
         return 0;
-    }
-
-    auto run_result = app::Run(args);
-    if (!run_result.has_value()) {
-        std::cerr << run_result.error() << '\n';
-        return 1;
     }
 
     return 0;

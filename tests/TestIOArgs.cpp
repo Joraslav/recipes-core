@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "io/args/Args.hpp"
+#include "types/kitchen/Types.hpp"
 
 #include <span>
 #include <string>
@@ -9,9 +10,10 @@
 
 namespace {
 
-using io::Args;
-using io::ParseArgs;
-using io::RecipeSelection;
+using io::arg::Args;
+using io::arg::GetProjectOutDir;
+using io::arg::ParseArgs;
+using types::RecipeSelection;
 
 class TestIOArgs : public ::testing::Test {
  protected:
@@ -42,8 +44,8 @@ TEST_F(TestIOArgs, ParseArgs_EmptyInput_ReturnsDefaultConfig) {
     EXPECT_TRUE(parsed.Out().write_console);
     EXPECT_TRUE(parsed.Out().write_json);
     EXPECT_TRUE(parsed.Out().write_yaml);
-    EXPECT_EQ(parsed.Out().json_out_path, io::GetProjectOutDir() / "info.json");
-    EXPECT_EQ(parsed.Out().yaml_out_path, io::GetProjectOutDir() / "info.yaml");
+    EXPECT_EQ(parsed.Out().json_out_path, GetProjectOutDir() / "info.json");
+    EXPECT_EQ(parsed.Out().yaml_out_path, GetProjectOutDir() / "info.yaml");
 }
 
 TEST_F(TestIOArgs, ParseArgs_HelpFlag_SetsShowHelp) {
