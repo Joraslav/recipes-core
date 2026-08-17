@@ -1,25 +1,53 @@
 #pragma once
 
 #include "concepts/Concepts.hpp"
+#include "console/Report.hpp"
 #include "io/args/Args.hpp"
+#include "json/Report.hpp"
 #include "types/kitchen/Types.hpp"
+#include "yaml/Report.hpp"
 
 #include <expected>
+#include <functional>
+#include <future>
 #include <iostream>
 #include <ostream>
 #include <span>
 #include <system_error>
+#include <vector>
 
 namespace io {
 
+/**
+ * @brief Writes a recipe list to the enabled output targets.
+ * @param recipes Recipes to report.
+ * @param args Output settings.
+ * @param out Output stream for console output.
+ * @return Error code if any write fails.
+ */
 [[nodiscard]] std::expected<void, std::error_code> ReportRecipes(
     std::span<const types::Recipe> recipes, const arg::Args::ArgsOut& args,
     std::ostream& out = std::cout);
 
+/**
+ * @brief Writes a product list to the enabled output targets.
+ * @param products Products to report.
+ * @param args Output settings.
+ * @param out Output stream for console output.
+ * @return Error code if any write fails.
+ */
 [[nodiscard]] std::expected<void, std::error_code> ReportProducts(
     std::span<const types::Product> products, const arg::Args::ArgsOut& args,
     std::ostream& out = std::cout);
 
+/**
+ * @brief Dispatches reporting to the product or recipe implementation.
+ * @tparam Tv Product or recipe type.
+ * @param items Items to report.
+ * @param args Output settings.
+ * @param out Output stream for console output.
+ * @return Error code if any write fails.
+ */
 template <concepts::ProductOrRecipe Tv>
 [[nodiscard]] std::expected<void, std::error_code> ReportsItems(
     std::span<const Tv> items, const arg::Args::ArgsOut& args,
@@ -32,6 +60,51 @@ template <concepts::ProductOrRecipe Tv>
         return std::unexpected(
             std::make_error_code(std::errc::invalid_argument));
     }
+}
+
+/**
+ * @brief Writes JSON/YAML in parallel when both outputs are enabled.
+ * @tparam Tv Product or recipe type.
+ * @param items Items to write.
+ * @param args Output settings.
+ * @param out Output stream for console output.
+ * @return Error code if any async write fails.
+ */
+template <concepts::ProductOrRecipe Tv>
+std::expected<void, std::error_code> ParallelReportsItems(
+    std::span<const Tv> items, const arg::Args::ArgsOut& args,
+    std::ostream& out) {
+    std::vector<std::future<std::expected<void, std::error_code>>> futures;
+
+    // Launch console print task if enabled (always sequential, doesn't block
+    // file I/O)
+    std::future<void> console_future;
+    if (args.write_console) {
+        console_future = std::async(std::launch::async, cli::PrintItems<Tv>,
+                                    items, args.is_full_info, std::ref(out));
+    }
+
+    // Launch JSON write task if enabled
+    futures.push_back(std::async(std::launch::async, json::WriteItemsJson<Tv>,
+                                 items, args.json_out_path));
+    // Launch YAML write task if enabled
+    futures.push_back(std::async(std::launch::async, yaml::WriteItemsYaml<Tv>,
+                                 items, args.yaml_out_path));
+
+    // Wait for console output
+    if (args.write_console) {
+        console_future.get();
+    }
+
+    // Wait for all file operations and check for errors
+    for (auto& future : futures) {
+        auto result = future.get();
+        if (!result.has_value()) {
+            return std::unexpected(result.error());
+        }
+    }
+
+    return {};
 }
 
 }  // namespace io

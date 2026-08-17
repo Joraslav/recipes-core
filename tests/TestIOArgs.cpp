@@ -147,4 +147,42 @@ TEST_F(TestIOArgs, BuildUsage_ContainsUpdatedFlags) {
     EXPECT_NE(usage.find("--db-path=<path>"), std::string::npos);
 }
 
+TEST_F(TestIOArgs, ParseArgs_EqualJsonAndYamlOutputPaths_ReturnsError) {
+    const std::vector<std::string> args{"recipes", "--json-out=tmp/out.json",
+                                        "--yaml-out=tmp/out.json"};
+    const auto argv = BuildArgv(args);
+
+    const auto parse_result = ParseArgs(std::span(argv));
+
+    ASSERT_FALSE(parse_result.has_value());
+    EXPECT_NE(parse_result.error().find(
+                  "JSON and YAML output paths must be different"),
+              std::string::npos);
+}
+
+TEST_F(TestIOArgs, ParseArgs_LastValueWinsForOutputPaths) {
+    const std::vector<std::string> args{
+        "recipes", "--json-out=tmp/first.json", "--json-out=tmp/second.json",
+        "--yaml-out=tmp/first.yaml", "--yaml-out=tmp/second.yaml"};
+    const auto argv = BuildArgv(args);
+
+    const auto parse_result = ParseArgs(std::span(argv));
+
+    ASSERT_TRUE(parse_result.has_value());
+    EXPECT_EQ(parse_result->Out().json_out_path, "tmp/second.json");
+    EXPECT_EQ(parse_result->Out().yaml_out_path, "tmp/second.yaml");
+}
+
+TEST_F(TestIOArgs, ParseArgs_DifferentOutputPaths_Succeeds) {
+    const std::vector<std::string> args{"recipes", "--json-out=tmp/report.json",
+                                        "--yaml-out=tmp/report.yaml"};
+    const auto argv = BuildArgv(args);
+
+    const auto parse_result = ParseArgs(std::span(argv));
+
+    ASSERT_TRUE(parse_result.has_value());
+    EXPECT_EQ(parse_result->Out().json_out_path, "tmp/report.json");
+    EXPECT_EQ(parse_result->Out().yaml_out_path, "tmp/report.yaml");
+}
+
 }  // namespace

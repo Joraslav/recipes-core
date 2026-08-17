@@ -49,7 +49,7 @@ class Args final {
      */
     [[nodiscard]] bool ShowHelp() const noexcept;
 
-    /*
+    /**
      * @brief Set `show_help` on `help_flag`
      * @param help_flag bool flag to show or not help
      */

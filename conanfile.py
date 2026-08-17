@@ -11,6 +11,7 @@ class ExampleRecipe(ConanFile):
         self.requires("glaze/7.8.4")
         self.requires("sqlitecpp/3.3.3")
         self.requires("libpqxx/8.0.2")
+        self.requires("benchmark/1.9.5")
 
     def layout(self):
         cmake_layout(self)

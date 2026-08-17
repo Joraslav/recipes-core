@@ -1,0 +1,18 @@
+[project]
+name = "recipes-python-tools"
+version = "0.1.0"
+description = ""
+package-mode = false
+authors = [
+    {name = "Joraslav",email = "yar.mozg2002@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib (>=3.11.1,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

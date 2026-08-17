@@ -8,10 +8,12 @@
 #include <cstdint>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 
 using namespace std::string_literals;
@@ -135,9 +137,9 @@ void SetBoolFlag(Args& args, std::string_view option) noexcept {
     }
 }
 
-void SetValueFlag(Args& args,
-                  const std::pair<std::string_view, std::string_view>&
-                      option_value) noexcept {
+std::expected<void, std::string> SetValueFlag(
+    Args& args, const std::pair<std::string_view, std::string_view>&
+                    option_value) noexcept {
     const auto& [option, value] = option_value;
 
     if (option == "--json-out"sv) {
@@ -147,6 +149,15 @@ void SetValueFlag(Args& args,
     } else if (option == "--db-path"sv) {
         args.AppMutable().db_path = fs::path{value};
     }
+
+    if (args.Out().json_out_path == args.Out().yaml_out_path) {
+        return std::unexpected(std::format(
+            "JSON and YAML output paths must be different: {} == {}",
+            args.Out().json_out_path.string(),
+            args.Out().yaml_out_path.string()));
+    }
+
+    return {};
 }
 
 }  // namespace
@@ -191,9 +202,13 @@ std::expected<Args, std::string> ParseArgs(
         }
 
         switch (*type) {
-            case FlagInfo::Type::Value:
-                SetValueFlag(parsed, std::make_pair(option, value));
+            case FlagInfo::Type::Value: {
+                auto result = SetValueFlag(parsed, {option, value});
+                if (!result.has_value()) {
+                    return std::unexpected(result.error());
+                }
                 break;
+            }
             case FlagInfo::Type::Bool:
                 SetBoolFlag(parsed, option);
                 break;

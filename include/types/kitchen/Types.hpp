@@ -102,6 +102,9 @@ class Recipe final {
                     std::initializer_list<Product> ingredients = {})
         : name_(name), ingredients_(ingredients) {}
 
+    explicit Recipe(std::string_view name, std::vector<Product>&& products)
+        : name_(name), ingredients_(std::move(products)) {}
+
     void SetName(std::string_view name) { name_ = name; }
     [[nodiscard]] const std::string& GetName() const noexcept { return name_; }
     /**

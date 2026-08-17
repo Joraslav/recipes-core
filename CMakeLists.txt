@@ -18,6 +18,8 @@ add_compile_options(
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/functions.cmake)
 
+option(BUILD_BENCHMARKS "Build benchmarks" ON)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/db)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/io)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/types)
@@ -26,6 +28,10 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/examples)
 
 if(BUILD_TESTING)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)
+endif()
+
+if(BUILD_BENCHMARKS)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/bench)
 endif()
 
 add_executable(${PROJECT_NAME} src/main.cpp)
