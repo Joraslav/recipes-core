@@ -7,6 +7,7 @@
 #include "types/kitchen/Types.hpp"
 #include "yaml/Report.hpp"
 
+#include <cstddef>
 #include <expected>
 #include <functional>
 #include <future>
@@ -17,6 +18,12 @@
 #include <vector>
 
 namespace io {
+
+/*
+ * @brief Minimum number of items to report in parallel
+ * @note @see benchmarks in bench/ThreadOutput.cpp for performance comparison
+ */
+constexpr size_t kMinSizeForParallelReporting = 250;
 
 /**
  * @brief Writes a recipe list to the enabled output targets.
@@ -74,7 +81,8 @@ template <concepts::ProductOrRecipe Tv>
 std::expected<void, std::error_code> ParallelReportsItems(
     std::span<const Tv> items, const arg::Args::ArgsOut& args,
     std::ostream& out) {
-    std::vector<std::future<std::expected<void, std::error_code>>> futures;
+    using TypeFutureFile = std::expected<void, std::error_code>;
+    std::vector<std::future<TypeFutureFile>> futures_files;
 
     // Launch console print task if enabled (always sequential, doesn't block
     // file I/O)
@@ -85,11 +93,13 @@ std::expected<void, std::error_code> ParallelReportsItems(
     }
 
     // Launch JSON write task if enabled
-    futures.push_back(std::async(std::launch::async, json::WriteItemsJson<Tv>,
-                                 items, args.json_out_path));
+    futures_files.push_back(std::async(std::launch::async,
+                                       json::WriteItemsJson<Tv>, items,
+                                       args.json_out_path));
     // Launch YAML write task if enabled
-    futures.push_back(std::async(std::launch::async, yaml::WriteItemsYaml<Tv>,
-                                 items, args.yaml_out_path));
+    futures_files.push_back(std::async(std::launch::async,
+                                       yaml::WriteItemsYaml<Tv>, items,
+                                       args.yaml_out_path));
 
     // Wait for console output
     if (args.write_console) {
@@ -97,7 +107,7 @@ std::expected<void, std::error_code> ParallelReportsItems(
     }
 
     // Wait for all file operations and check for errors
-    for (auto& future : futures) {
+    for (auto& future : futures_files) {
         auto result = future.get();
         if (!result.has_value()) {
             return std::unexpected(result.error());

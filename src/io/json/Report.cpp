@@ -4,6 +4,7 @@
 
 #include <glaze/core/common.hpp>
 // #include <glaze/core/reflect.hpp>
+#include <glaze/core/ostream_buffer.hpp>
 #include <glaze/forward.hpp>
 #include <glaze/json/write.hpp>
 
@@ -110,12 +111,6 @@ namespace {
 template <class Value>
 std::expected<void, std::error_code> WriteJsonPayload(
     const Value& value, const fs::path& out_path) {
-    std::string buffer;
-    if (const auto ec = glz::write_json(value, buffer); ec) {
-        return std::unexpected(
-            std::make_error_code(std::errc::invalid_argument));
-    }
-
     const auto parent_path = out_path.parent_path();
     if (!parent_path.empty()) {
         std::error_code ec;
@@ -131,8 +126,13 @@ std::expected<void, std::error_code> WriteJsonPayload(
             std::make_error_code(std::errc::no_such_file_or_directory));
     }
 
-    out.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    if (!out.good()) {
+    glz::ostream_buffer stream{out};
+    if (const auto ec = glz::write_json(value, stream); ec) {
+        return std::unexpected(
+            std::make_error_code(std::errc::invalid_argument));
+    }
+
+    if (stream.fail()) {
         return std::unexpected(std::make_error_code(std::errc::io_error));
     }
 

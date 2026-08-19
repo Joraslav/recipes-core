@@ -69,8 +69,7 @@ void BMReportsItemsRecipes(benchmark::State& state) {
     std::ostringstream out;
 
     for (auto _ : state) {
-        const auto result = io::ReportsItems<Recipe>(
-            std::span<const Recipe>(recipes), args, out);
+        const auto result = io::ReportsItems<Recipe>(recipes, args, out);
         if (!result.has_value()) {
             state.SkipWithError("ReportsItems failed");
             break;
@@ -89,8 +88,8 @@ void BMParallelReportsItemsRecipes(benchmark::State& state) {
     std::ostringstream out;
 
     for (auto _ : state) {
-        const auto result = io::ParallelReportsItems<Recipe>(
-            std::span<const Recipe>(recipes), args, out);
+        const auto result =
+            io::ParallelReportsItems<Recipe>(recipes, args, out);
         if (!result.has_value()) {
             state.SkipWithError("ParallelReportsItems failed");
             break;
@@ -102,24 +101,28 @@ void BMParallelReportsItemsRecipes(benchmark::State& state) {
 }
 
 BENCHMARK(BMReportsItemsRecipes)
-    ->Arg(1)
     ->Arg(10)
     ->Arg(50)
     ->Arg(100)
     ->Arg(250)
     ->Arg(500)
     ->Arg(1000)
-    ->Arg(2000);
+    ->Arg(1500)
+    ->Arg(2000)
+    ->Arg(2500)
+    ->Arg(3000);
 
 BENCHMARK(BMParallelReportsItemsRecipes)
-    ->Arg(1)
     ->Arg(10)
     ->Arg(50)
     ->Arg(100)
     ->Arg(250)
     ->Arg(500)
     ->Arg(1000)
-    ->Arg(2000);
+    ->Arg(1500)
+    ->Arg(2000)
+    ->Arg(2500)
+    ->Arg(3000);
 
 BENCHMARK_MAIN();
 
