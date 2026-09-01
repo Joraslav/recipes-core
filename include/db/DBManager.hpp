@@ -6,6 +6,7 @@
 #include "types/kitchen/Types.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -42,9 +43,19 @@ class DBManager final {
 
     void InsertProduct(const types::Product& product);
     void InsertProducts(std::span<const types::Product> products);
+    [[nodiscard]] int64_t CreateProduct(const types::Product& product);
+    [[nodiscard]] std::optional<types::Product> GetProduct(int64_t product_id);
+    [[nodiscard]] bool UpdateProduct(int64_t product_id,
+                                     const types::Product& product);
+    [[nodiscard]] bool DeleteProduct(int64_t product_id);
 
     void InsertRecipe(const types::Recipe& recipe);
     void InsertRecipes(std::span<const types::Recipe> recipes);
+    [[nodiscard]] int64_t CreateRecipe(const types::Recipe& recipe);
+    [[nodiscard]] std::optional<types::Recipe> GetRecipe(int64_t recipe_id);
+    [[nodiscard]] bool UpdateRecipe(int64_t recipe_id,
+                                    const types::Recipe& recipe);
+    [[nodiscard]] bool DeleteRecipe(int64_t recipe_id);
 
     [[nodiscard]] std::vector<types::Product> GetAllProducts();
 
@@ -60,13 +71,21 @@ class DBManager final {
     Database db_;
 
     Statement insert_product_;
+    Statement create_product_;
     Statement select_all_products_;
+    Statement select_product_by_id_;
+    Statement update_product_by_id_;
+    Statement delete_product_by_id_;
     Statement insert_recipe_if_absent_;
+    Statement create_recipe_;
     Statement select_recipe_id_by_name_;
     Statement delete_recipe_ingredients_by_recipe_id_;
     Statement insert_recipe_ingredient_;
     Statement select_recipe_ingredients_by_recipe_id_;
     Statement select_all_recipes_with_ingredients_;
+    Statement select_recipe_by_id_with_ingredients_;
+    Statement update_recipe_name_by_id_;
+    Statement delete_recipe_by_id_;
     Statement select_cookable_recipes_with_ingredients_;
 
     /**
@@ -81,8 +100,10 @@ class DBManager final {
 
     [[nodiscard]] static Database InitDb(std::string_view db_path);
 
+    void ReplaceRecipeIngredients(int64_t recipe_id,
+                                  const types::Recipe& recipe);
     [[nodiscard]] static std::vector<types::Recipe> FetchRecipes(
-        Statement& stmt);
+        Statement& stmt, std::optional<int64_t> recipe_id = std::nullopt);
 };
 
 }  // namespace db

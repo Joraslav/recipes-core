@@ -10,8 +10,9 @@ class ExampleRecipe(ConanFile):
         self.requires("gtest/1.17.0")
         self.requires("glaze/7.8.4")
         self.requires("sqlitecpp/3.3.3")
-        self.requires("libpqxx/8.0.2")
         self.requires("benchmark/1.9.5")
+        self.requires("boost/1.91.0")
+        self.requires("openssl/4.0.1")
 
     def layout(self):
         cmake_layout(self)

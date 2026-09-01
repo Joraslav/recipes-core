@@ -47,14 +47,39 @@ ON CONFLICT(name, dimension) DO UPDATE SET
     expiration_date = excluded.expiration_date;
 )sql";
 
+    static constexpr std::string_view kCreateProduct = R"sql(
+INSERT INTO products(name, dimension, amount_base, manufacture_date, expiration_date)
+VALUES (?, ?, ?, ?, ?);
+)sql";
+
     static constexpr std::string_view kSelectAllProducts = R"sql(
-SELECT name, dimension, amount_base, manufacture_date, expiration_date
+SELECT id, name, dimension, amount_base, manufacture_date, expiration_date
 FROM products
 ORDER BY amount_base;
 )sql";
 
+    static constexpr std::string_view kSelectProductById = R"sql(
+SELECT id, name, dimension, amount_base, manufacture_date, expiration_date
+FROM products
+WHERE id = ?;
+)sql";
+
+    static constexpr std::string_view kUpdateProductById = R"sql(
+UPDATE products
+SET name = ?, dimension = ?, amount_base = ?, manufacture_date = ?, expiration_date = ?
+WHERE id = ?;
+)sql";
+
+    static constexpr std::string_view kDeleteProductById = R"sql(
+DELETE FROM products WHERE id = ?;
+)sql";
+
     static constexpr std::string_view kInsertRecipeIfAbsent = R"sql(
 INSERT OR IGNORE INTO recipes(name) VALUES (?);
+)sql";
+
+    static constexpr std::string_view kCreateRecipe = R"sql(
+INSERT INTO recipes(name) VALUES (?);
 )sql";
 
     static constexpr std::string_view kSelectRecipeIdByName = R"sql(
@@ -87,6 +112,22 @@ SELECT r.id, r.name, ri.product_name, ri.dimension, ri.required_amount_base
 FROM recipes r
 LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
 ORDER BY r.name, ri.product_name, ri.dimension;
+)sql";
+
+    static constexpr std::string_view kSelectRecipeByIdWithIngredients = R"sql(
+SELECT r.id, r.name, ri.product_name, ri.dimension, ri.required_amount_base
+FROM recipes r
+LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+WHERE r.id = ?
+ORDER BY ri.product_name, ri.dimension;
+)sql";
+
+    static constexpr std::string_view kUpdateRecipeNameById = R"sql(
+UPDATE recipes SET name = ? WHERE id = ?;
+)sql";
+
+    static constexpr std::string_view kDeleteRecipeById = R"sql(
+DELETE FROM recipes WHERE id = ?;
 )sql";
 
     static constexpr std::string_view kSelectCookableRecipesWithIngredients =

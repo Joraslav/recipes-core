@@ -4,6 +4,7 @@
 #include "types/kitchen/Types.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <initializer_list>
 #include <string>
 #include <string_view>
@@ -80,6 +81,8 @@ TEST_F(TestDBManager, InsertProduct_WithDates_PersistsAllFields) {
 
     const std::vector<Product> products = db_manager.GetAllProducts();
     ASSERT_EQ(products.size(), 1U);
+    ASSERT_TRUE(products.front().GetId().has_value());
+    EXPECT_GT(products.front().GetId().value(), 0);
     ExpectProductEq(products.front(), milk);
 }
 
@@ -104,6 +107,35 @@ TEST_F(TestDBManager, InsertProduct_OnConflict_UpdatesExistingProduct) {
     EXPECT_EQ(products.front().GetName(), "Egg");
     EXPECT_EQ(products.front().GetAmount(), 10);
     EXPECT_EQ(products.front().GetDimension(), Dimension::Piece);
+}
+
+TEST_F(TestDBManager, CreateProduct_GetUpdateDeleteById_ChangesProduct) {
+    const int64_t product_id =
+        db_manager.CreateProduct(MakeProduct("Egg", 4, Dimension::Piece));
+
+    const auto created_product = db_manager.GetProduct(product_id);
+    ASSERT_TRUE(created_product.has_value());
+    ASSERT_TRUE(created_product->GetId().has_value());
+    EXPECT_EQ(created_product->GetId().value(), product_id);
+    ExpectProductEq(*created_product, MakeProduct("Egg", 4, Dimension::Piece));
+
+    EXPECT_TRUE(db_manager.UpdateProduct(
+        product_id, MakeProduct("Egg", 10, Dimension::Piece)));
+    const auto updated_product = db_manager.GetProduct(product_id);
+    ASSERT_TRUE(updated_product.has_value());
+    ExpectProductEq(*updated_product, MakeProduct("Egg", 10, Dimension::Piece));
+
+    EXPECT_TRUE(db_manager.DeleteProduct(product_id));
+    EXPECT_FALSE(db_manager.GetProduct(product_id).has_value());
+}
+
+TEST_F(TestDBManager, ProductCrud_UnknownId_ReturnsNotFound) {
+    constexpr int64_t kUnknownProductId = 9999;
+
+    EXPECT_FALSE(db_manager.GetProduct(kUnknownProductId).has_value());
+    EXPECT_FALSE(db_manager.UpdateProduct(
+        kUnknownProductId, MakeProduct("Egg", 10, Dimension::Piece)));
+    EXPECT_FALSE(db_manager.DeleteProduct(kUnknownProductId));
 }
 
 TEST_F(TestDBManager, InsertProducts_WithMultipleItems_ReturnsAllProducts) {
@@ -153,6 +185,8 @@ TEST_F(TestDBManager,
 
     const std::vector<Recipe> recipes = db_manager.GetAllRecipes();
     ASSERT_EQ(recipes.size(), 1U);
+    ASSERT_TRUE(recipes.front().GetId().has_value());
+    EXPECT_GT(recipes.front().GetId().value(), 0);
     EXPECT_EQ(recipes.front().GetName(), kPancake);
     ASSERT_EQ(recipes.front().GetIngredients().size(), 2U);
 
@@ -185,6 +219,43 @@ TEST_F(TestDBManager,
     ASSERT_EQ(recipes.front().GetIngredients().size(), 1U);
     EXPECT_EQ(recipes.front().GetIngredients().front().GetName(), "Egg");
     EXPECT_EQ(recipes.front().GetIngredients().front().GetAmount(), 2);
+}
+
+TEST_F(TestDBManager, CreateRecipe_GetUpdateDeleteById_ChangesRecipe) {
+    const int64_t recipe_id = db_manager.CreateRecipe(MakeRecipe(
+        kPancake, {
+                      MakeProduct("Milk", 200, Dimension::Milliliter),
+                  }));
+
+    const auto created_recipe = db_manager.GetRecipe(recipe_id);
+    ASSERT_TRUE(created_recipe.has_value());
+    ASSERT_TRUE(created_recipe->GetId().has_value());
+    EXPECT_EQ(created_recipe->GetId().value(), recipe_id);
+    EXPECT_EQ(created_recipe->GetName(), kPancake);
+    ASSERT_EQ(created_recipe->GetIngredients().size(), 1U);
+
+    EXPECT_TRUE(db_manager.UpdateRecipe(
+        recipe_id,
+        MakeRecipe(kOmelet, {
+                                MakeProduct("Egg", 2, Dimension::Piece),
+                            })));
+    const auto updated_recipe = db_manager.GetRecipe(recipe_id);
+    ASSERT_TRUE(updated_recipe.has_value());
+    EXPECT_EQ(updated_recipe->GetName(), kOmelet);
+    ASSERT_EQ(updated_recipe->GetIngredients().size(), 1U);
+    EXPECT_EQ(updated_recipe->GetIngredients().front().GetName(), "Egg");
+
+    EXPECT_TRUE(db_manager.DeleteRecipe(recipe_id));
+    EXPECT_FALSE(db_manager.GetRecipe(recipe_id).has_value());
+}
+
+TEST_F(TestDBManager, RecipeCrud_UnknownId_ReturnsNotFound) {
+    constexpr int64_t kUnknownRecipeId = 9999;
+
+    EXPECT_FALSE(db_manager.GetRecipe(kUnknownRecipeId).has_value());
+    EXPECT_FALSE(
+        db_manager.UpdateRecipe(kUnknownRecipeId, MakeRecipe(kPancake, {})));
+    EXPECT_FALSE(db_manager.DeleteRecipe(kUnknownRecipeId));
 }
 
 TEST_F(TestDBManager,

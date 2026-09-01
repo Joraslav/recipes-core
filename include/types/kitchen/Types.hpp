@@ -26,9 +26,14 @@ enum class Dimension : uint8_t { Gramm, Kilogramm, Milliliter, Liter, Piece };
 class Product final {
  public:
     explicit Product(std::string_view name, int amount, Dimension dimension,
-                     Dates dates = {})
-        : name_(name), amount_(amount), dimension_(dimension), dates_(dates) {}
+                     Dates dates = {}, std::optional<int64_t> id = std::nullopt)
+        : id_(id),
+          name_(name),
+          amount_(amount),
+          dimension_(dimension),
+          dates_(dates) {}
 
+    void SetId(int64_t id) noexcept { id_ = id; }
     void SetName(std::string_view name) { name_ = name; }
     void SetManufactureDate(std::chrono::sys_days manufacture_date) {
         dates_.manufacture = manufacture_date;
@@ -38,6 +43,9 @@ class Product final {
     }
     void SetAmount(int amount) { amount_ = amount; }
 
+    [[nodiscard]] const std::optional<int64_t>& GetId() const noexcept {
+        return id_;
+    }
     [[nodiscard]] const std::string& GetName() const noexcept { return name_; }
     /**
      * @brief Returns name as string_view
@@ -87,6 +95,7 @@ class Product final {
     }
 
  private:
+    std::optional<int64_t> id_;
     std::string name_;
     int amount_;
     Dimension dimension_;
@@ -99,13 +108,19 @@ class Product final {
 class Recipe final {
  public:
     explicit Recipe(std::string_view name,
-                    std::initializer_list<Product> ingredients = {})
-        : name_(name), ingredients_(ingredients) {}
+                    std::initializer_list<Product> ingredients = {},
+                    std::optional<int64_t> id = std::nullopt)
+        : id_(id), name_(name), ingredients_(ingredients) {}
 
-    explicit Recipe(std::string_view name, std::vector<Product>&& products)
-        : name_(name), ingredients_(std::move(products)) {}
+    explicit Recipe(std::string_view name, std::vector<Product>&& products,
+                    std::optional<int64_t> id = std::nullopt)
+        : id_(id), name_(name), ingredients_(std::move(products)) {}
 
+    void SetId(int64_t id) noexcept { id_ = id; }
     void SetName(std::string_view name) { name_ = name; }
+    [[nodiscard]] const std::optional<int64_t>& GetId() const noexcept {
+        return id_;
+    }
     [[nodiscard]] const std::string& GetName() const noexcept { return name_; }
     /**
      * @brief Returns name as string_view
@@ -135,6 +150,7 @@ class Recipe final {
     }
 
  private:
+    std::optional<int64_t> id_;
     std::string name_;
     std::vector<Product> ingredients_;
 };
