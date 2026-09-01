@@ -47,9 +47,30 @@ ADD_GTEST_TARGET(TestIOArgs
 		_types
 )
 
-# ADD_GTEST_TARGET(TestApp
-# 	SOURCES
-# 		TestApp.cpp
-# 	LINK_LIBS
-# 		_app
-# )
+ADD_GTEST_TARGET(TestApi
+	SOURCES
+		TestApi.cpp
+	LINK_LIBS
+		_api
+)
+
+ADD_GTEST_TARGET(TestRecipeService
+	SOURCES
+		TestRecipeService.cpp
+	LINK_LIBS
+		_app
+)
+
+ADD_GTEST_TARGET(TestSqliteRecipeRepository
+	SOURCES
+		TestSqliteRecipeRepository.cpp
+	LINK_LIBS
+		_app
+)
+
+ADD_GTEST_TARGET(TestServerConfig
+	SOURCES
+		TestServerConfig.cpp
+	LINK_LIBS
+		_config
+)
