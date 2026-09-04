@@ -80,9 +80,9 @@ namespace {
 }
 
 template <typename ReadFunction>
-std::expected<config::ServerConfig, std::string> ParseConfig(
-    std::string_view text, ReadFunction&& read) {
-    config::ServerConfig config;
+std::expected<ServerConfig, std::string> ParseConfig(std::string_view text,
+                                                     ReadFunction&& read) {
+    ServerConfig config;
     if (const auto error = std::forward<ReadFunction>(read)(config, text);
         error) {
         return std::unexpected(glz::format_error(error, text));

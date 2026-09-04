@@ -1,4 +1,5 @@
 add_library(_app STATIC
+    DatabaseExecutor.cpp
     RecipeService.cpp
     SqliteRecipeRepository.cpp
 )

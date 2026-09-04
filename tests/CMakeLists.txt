@@ -68,6 +68,20 @@ ADD_GTEST_TARGET(TestSqliteRecipeRepository
 		_app
 )
 
+ADD_GTEST_TARGET(TestDatabaseExecutor
+	SOURCES
+		TestDatabaseExecutor.cpp
+	LINK_LIBS
+		_app
+)
+
+ADD_GTEST_TARGET(TestHttpRouter
+	SOURCES
+		TestHttpRouter.cpp
+	LINK_LIBS
+		_server
+)
+
 ADD_GTEST_TARGET(TestServerConfig
 	SOURCES
 		TestServerConfig.cpp
