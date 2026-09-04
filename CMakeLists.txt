@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 4.1.0)
 project(Recipes VERSION 0.1.0 LANGUAGES CXX)
 
-include(GoogleTest)
-include(CTest)
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -19,6 +16,9 @@ add_compile_options(
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/functions.cmake)
 
 option(BUILD_BENCHMARKS "Build benchmarks" ON)
+option(BUILD_EXAMPLES "Build examples" ON)
+option(BUILD_TESTING "Build test" ON)
+option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/db)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/io)
@@ -27,9 +27,14 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/config)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/server)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/app)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/examples)
+
+if(BUILD_EXAMPLES)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/examples)
+endif()
 
 if(BUILD_TESTING)
+  include(GoogleTest)
+  include(CTest)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()
 
