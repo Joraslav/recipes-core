@@ -26,6 +26,7 @@
 
 using api::ErrorResponse;
 using api::ParseProductRequest;
+using api::ParseRecipeRequest;
 using api::ProductResponse;
 using api::RecipeResponse;
 using api::SerializeJson;
@@ -53,6 +54,22 @@ namespace {
         return std::nullopt;
     }
     return product_id;
+}
+
+[[nodiscard]] std::optional<int64_t> ParseRecipeId(std::string_view target) {
+    constexpr std::string_view kPrefix = "/v1/recipes/";
+    if (!target.starts_with(kPrefix) || target.size() == kPrefix.size() ||
+        target == "/v1/recipes/cookable") {
+        return std::nullopt;
+    }
+    const std::string_view id_text = target.substr(kPrefix.size());
+    int64_t recipe_id{};
+    const auto [end, error] =
+        std::from_chars(id_text.begin(), id_text.end(), recipe_id);
+    if (error != std::errc{} || end != id_text.end() || recipe_id <= 0) {
+        return std::nullopt;
+    }
+    return recipe_id;
 }
 
 [[nodiscard]] std::optional<types::Dimension> ParseDimension(
@@ -160,6 +177,31 @@ namespace {
         return std::nullopt;
     }
     return Product{product_request->name, product_request->amount, *dimension};
+}
+
+[[nodiscard]] std::optional<Recipe> ParseRecipe(
+    std::string_view body, net::http::status& error_status,
+    std::string& error_message) {
+    const auto recipe_request = ParseRecipeRequest(body);
+    if (!recipe_request.has_value()) {
+        error_status = net::http::status::bad_request;
+        error_message = recipe_request.error();
+        return std::nullopt;
+    }
+
+    std::vector<Product> ingredients;
+    ingredients.reserve(recipe_request->ingredients.size());
+    for (const auto& ingredient_request : recipe_request->ingredients) {
+        const auto dimension = ParseDimension(ingredient_request.dimension);
+        if (!dimension.has_value()) {
+            error_status = net::http::status::bad_request;
+            error_message = "Invalid recipe ingredient dimension";
+            return std::nullopt;
+        }
+        ingredients.emplace_back(ingredient_request.name,
+                                ingredient_request.amount, *dimension);
+    }
+    return Recipe{recipe_request->name, std::move(ingredients)};
 }
 
 }  // namespace
@@ -371,12 +413,113 @@ cobalt::task<Router::Response> Router::HandleRecipes(Request request,
                                request.keep_alive(), *body);
 }
 
+cobalt::task<Router::Response> Router::CreateRecipe(Request request) {
+    http::status parse_error_status = http::status::bad_request;
+    std::string parse_error_message;
+    const auto recipe = ParseRecipe(request.body(), parse_error_status,
+                                    parse_error_message);
+    if (!recipe.has_value()) {
+        co_return MakeErrorResponse(parse_error_status, request.version(),
+                                    request.keep_alive(), "invalid_json",
+                                    parse_error_message);
+    }
+
+    const auto created_recipe = co_await database_executor_->AsyncSubmit(
+        [recipe = *recipe](RecipeService& service) {
+            return service.CreateRecipe(recipe);
+        },
+        cobalt::use_op);
+    if (!created_recipe.has_value()) {
+        co_return MakeAppErrorResponse(created_recipe.error(),
+                                       request.version(), request.keep_alive());
+    }
+    const auto body = SerializeJson(ToRecipeResponse(*created_recipe));
+    if (!body.has_value()) {
+        co_return MakeErrorResponse(http::status::internal_server_error,
+                                    request.version(), request.keep_alive(),
+                                    "serialization_error",
+                                    "Failed to serialize recipe");
+    }
+    co_return MakeJsonResponse(http::status::created, request.version(),
+                               request.keep_alive(), *body);
+}
+
+cobalt::task<Router::Response> Router::UpdateRecipe(Request request,
+                                                     int64_t recipe_id) {
+    http::status parse_error_status = http::status::bad_request;
+    std::string parse_error_message;
+    const auto recipe = ParseRecipe(request.body(), parse_error_status,
+                                    parse_error_message);
+    if (!recipe.has_value()) {
+        co_return MakeErrorResponse(parse_error_status, request.version(),
+                                    request.keep_alive(), "invalid_json",
+                                    parse_error_message);
+    }
+
+    const auto updated = co_await database_executor_->AsyncSubmit(
+        [recipe_id, recipe = *recipe](RecipeService& service) {
+            return service.UpdateRecipe(recipe_id, recipe);
+        },
+        cobalt::use_op);
+    if (!updated.has_value()) {
+        co_return MakeAppErrorResponse(updated.error(), request.version(),
+                                       request.keep_alive());
+    }
+    co_return co_await GetRecipe(std::move(request), recipe_id);
+}
+
+cobalt::task<Router::Response> Router::DeleteRecipe(Request request,
+                                                     int64_t recipe_id) {
+    const auto deleted = co_await database_executor_->AsyncSubmit(
+        [recipe_id](RecipeService& service) {
+            return service.DeleteRecipe(recipe_id);
+        },
+        cobalt::use_op);
+    if (!deleted.has_value()) {
+        co_return MakeAppErrorResponse(deleted.error(), request.version(),
+                                       request.keep_alive());
+    }
+    http::response<http::string_body> response{http::status::no_content,
+                                               request.version()};
+    response.keep_alive(request.keep_alive());
+    co_return response;
+}
+
+cobalt::task<Router::Response> Router::GetRecipe(Request request,
+                                                  int64_t recipe_id) {
+    const auto recipe_result = co_await database_executor_->AsyncSubmit(
+        [recipe_id](RecipeService& service) {
+            return service.GetRecipe(recipe_id);
+        },
+        cobalt::use_op);
+    if (!recipe_result.has_value()) {
+        co_return MakeAppErrorResponse(recipe_result.error(), request.version(),
+                                       request.keep_alive());
+    }
+    if (!recipe_result->has_value()) {
+        co_return MakeErrorResponse(http::status::not_found, request.version(),
+                                    request.keep_alive(), "not_found",
+                                    "Recipe was not found");
+    }
+    const auto body = SerializeJson(ToRecipeResponse(recipe_result->value()));
+    if (!body.has_value()) {
+        co_return MakeErrorResponse(http::status::internal_server_error,
+                                    request.version(), request.keep_alive(),
+                                    "serialization_error",
+                                    "Failed to serialize recipe");
+    }
+    co_return MakeJsonResponse(http::status::ok, request.version(),
+                               request.keep_alive(), *body);
+}
+
 cobalt::task<Router::Response> Router::HandleAsync(Request request) {
     const bool is_product_collection = request.target() == "/v1/products";
     const auto product_id = ParseProductId(request.target());
     const bool is_product_item = product_id.has_value();
     const bool is_recipe_collection = request.target() == "/v1/recipes";
     const bool is_cookable_recipes = request.target() == "/v1/recipes/cookable";
+    const auto recipe_id = ParseRecipeId(request.target());
+    const bool is_recipe_item = recipe_id.has_value();
 
     if (is_product_collection || is_product_item) {
         const bool collection_method =
@@ -391,9 +534,39 @@ cobalt::task<Router::Response> Router::HandleAsync(Request request) {
         }
     }
     if (is_recipe_collection || is_cookable_recipes) {
+        if (database_executor_ == nullptr) {
+            co_return MakeErrorResponse(
+                http::status::service_unavailable, request.version(),
+                request.keep_alive(), "service_unavailable",
+                "Database service is unavailable");
+        }
+        if (is_recipe_collection && request.method() == http::verb::post) {
+            co_return co_await CreateRecipe(std::move(request));
+        }
         if (request.method() == http::verb::get) {
             co_return co_await HandleRecipes(std::move(request),
                                              is_cookable_recipes);
+        }
+    }
+    if (is_recipe_item) {
+        if (database_executor_ == nullptr) {
+            co_return MakeErrorResponse(
+                http::status::service_unavailable, request.version(),
+                request.keep_alive(), "service_unavailable",
+                "Database service is unavailable");
+        }
+        switch (request.method()) {
+            case http::verb::get:
+                co_return co_await GetRecipe(std::move(request),
+                                             recipe_id.value());
+            case http::verb::put:
+                co_return co_await UpdateRecipe(std::move(request),
+                                                recipe_id.value());
+            case http::verb::delete_:
+                co_return co_await DeleteRecipe(std::move(request),
+                                                recipe_id.value());
+            default:
+                break;
         }
     }
     co_return Handle(request);

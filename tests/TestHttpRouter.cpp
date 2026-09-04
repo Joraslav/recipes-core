@@ -244,4 +244,67 @@ TEST_F(TestHttpRouter, HandleAsync_RecipeCollections_ReturnNestedRecipes) {
     EXPECT_NE(cookable_response.body().find("Tea"), std::string::npos);
 }
 
+TEST_F(TestHttpRouter, HandleAsync_RecipeCrudById_CompletesLifecycle) {
+    DatabaseExecutor database_executor{":memory:", 4};
+    boost::asio::io_context io_context;
+    auto work_guard = boost::asio::make_work_guard(io_context);
+    std::jthread io_worker([&io_context] { io_context.run(); });
+    net::Router router{&database_executor};
+
+    const auto send_request = [&](http::request<http::string_body> request) {
+        std::promise<http::response<http::string_body>> completion;
+        auto response_future = completion.get_future();
+        boost::cobalt::spawn(
+            io_context, router.HandleAsync(std::move(request)),
+            [&completion](
+                std::exception_ptr
+                    exception,  // NOLINT (performance-unnecessary-value-param)
+                http::response<http::string_body> response) {
+                if (exception) {
+                    completion.set_exception(exception);
+                    return;
+                }
+                completion.set_value(std::move(response));
+            });
+        return response_future.get();
+    };
+
+    http::request<http::string_body> create_request{http::verb::post,
+                                                    "/v1/recipes", 11};
+    create_request.body() =
+        R"({"name":"Tea","ingredients":[{"name":"Water","amount":200,"dimension":"ml"}]})";
+    const auto created_response = send_request(std::move(create_request));
+    ASSERT_EQ(created_response.result(), http::status::created);
+    const size_t id_start = created_response.body().find("\"id\":") + 5;
+    const int64_t recipe_id =
+        std::stoll(created_response.body().substr(id_start));
+    const std::string recipe_target =
+        "/v1/recipes/" + std::to_string(recipe_id);
+
+    const auto fetched_response = send_request(
+        http::request<http::string_body>{http::verb::get, recipe_target, 11});
+    ASSERT_EQ(fetched_response.result(), http::status::ok);
+    EXPECT_NE(fetched_response.body().find("Tea"), std::string::npos);
+    EXPECT_NE(fetched_response.body().find("Water"), std::string::npos);
+
+    http::request<http::string_body> update_request{http::verb::put,
+                                                    recipe_target, 11};
+    update_request.body() =
+        R"({"name":"Iced tea","ingredients":[{"name":"Water","amount":300,"dimension":"ml"}]})";
+    const auto updated_response = send_request(std::move(update_request));
+    ASSERT_EQ(updated_response.result(), http::status::ok);
+    EXPECT_NE(updated_response.body().find("Iced tea"), std::string::npos);
+    EXPECT_NE(updated_response.body().find("\"amount\":300"),
+              std::string::npos);
+
+    const auto deleted_response = send_request(http::request<http::string_body>{
+        http::verb::delete_, recipe_target, 11});
+    EXPECT_EQ(deleted_response.result(), http::status::no_content);
+
+    const auto missing_response = send_request(
+        http::request<http::string_body>{http::verb::get, recipe_target, 11});
+    EXPECT_EQ(missing_response.result(), http::status::not_found);
+    work_guard.reset();
+}
+
 }  // namespace
