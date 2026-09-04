@@ -5,6 +5,7 @@
 #include <expected>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace api {
 
@@ -33,6 +34,14 @@ namespace api {
  */
 [[nodiscard]] std::expected<std::string, std::string> SerializeJson(
     const ProductResponse& response);
+/**
+ * @brief Serializes persisted products to the API JSON representation.
+ * @param responses Product responses to serialize.
+ * @return JSON document or serialization error description.
+ * @exception_safety Strong guarantee.
+ */
+[[nodiscard]] std::expected<std::string, std::string> SerializeJson(
+    const std::vector<ProductResponse>& responses);
 /**
  * @brief Serializes a persisted recipe to the API JSON representation.
  * @param response Recipe response to serialize.

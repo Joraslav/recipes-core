@@ -10,6 +10,7 @@
 #include <expected>
 #include <string>
 #include <string_view>
+#include <vector>
 
 using api::ErrorResponse;
 using api::ProductRequest;
@@ -106,6 +107,11 @@ std::expected<RecipeRequest, std::string> ParseRecipeRequest(
 std::expected<std::string, std::string> SerializeJson(
     const ProductResponse& response) {
     return WriteJson(response);
+}
+
+std::expected<std::string, std::string> SerializeJson(
+    const std::vector<ProductResponse>& responses) {
+    return WriteJson(responses);
 }
 
 std::expected<std::string, std::string> SerializeJson(

@@ -16,6 +16,7 @@ target_include_directories(_server
 
 target_link_libraries(_server PUBLIC
   _api
+  _app
   Boost::boost
   Boost::cobalt
   OpenSSL::SSL

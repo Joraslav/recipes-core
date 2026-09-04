@@ -1,3 +1,5 @@
+FIND_LIB(Boost)
+
 add_library(_app STATIC
     DatabaseExecutor.cpp
     RecipeService.cpp
@@ -15,4 +17,5 @@ target_include_directories(_app
 target_link_libraries(_app PUBLIC
     _db
     _types
+    Boost::boost
 )

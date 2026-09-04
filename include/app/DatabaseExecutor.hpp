@@ -5,6 +5,10 @@
 #include "app/SqliteRecipeRepository.hpp"
 #include "db/DBManager.hpp"
 
+#include <boost/asio/associated_executor.hpp>
+#include <boost/asio/async_result.hpp>
+#include <boost/asio/post.hpp>
+
 #include <concepts>
 #include <condition_variable>
 #include <cstddef>
@@ -59,6 +63,20 @@ class DatabaseExecutor final {
         requires std::invocable<Function, RecipeService&>
     [[nodiscard]] auto Submit(Function&& operation)
         -> std::future<std::invoke_result_t<Function, RecipeService&>>;
+
+    /**
+     * @brief Queues an operation and completes it on the handler's executor.
+     * @tparam Function Callable returning `std::expected<T, app::Error>`.
+     * @tparam CompletionToken Asio completion token.
+     * @param operation Work to run on the database worker.
+     * @param token Completion token receiving the operation result.
+     * @return Asio asynchronous operation result for `void(Result)`.
+     * @details Cobalt callers can pass `boost::cobalt::use_op` and co_await
+     * the returned operation without blocking a network worker.
+     */
+    template <typename Function, typename CompletionToken>
+        requires std::invocable<Function, RecipeService&>
+    auto AsyncSubmit(Function&& operation, CompletionToken&& token);
 
  private:
     void Run();
@@ -115,6 +133,62 @@ auto DatabaseExecutor::Submit(Function&& operation)
     });
     condition_.notify_one();
     return future;
+}
+
+template <typename Function, typename CompletionToken>
+    requires std::invocable<Function, RecipeService&>
+auto DatabaseExecutor::AsyncSubmit(Function&& operation,
+                                   CompletionToken&& token) {
+    using Result = std::invoke_result_t<Function, RecipeService&>;
+    static_assert(
+        requires { Result{std::unexpected(Error{ErrorCode::Overloaded, ""})}; },
+        "DatabaseExecutor operations must return std::expected<T, app::Error>");
+
+    return boost::asio::async_initiate<void(Result)>(
+        [this, operation = std::forward<Function>(operation)](
+            auto&& completion_handler) mutable {
+            using Handler = std::decay_t<decltype(completion_handler)>;
+            auto handler = std::make_shared<Handler>(
+                std::forward<decltype(completion_handler)>(completion_handler));
+            const auto handler_executor =
+                boost::asio::get_associated_executor(*handler);
+            auto operation_ptr =
+                std::make_shared<std::decay_t<Function>>(std::move(operation));
+            const auto complete = [handler, handler_executor](Result result) {
+                boost::asio::post(
+                    handler_executor,
+                    [handler, result = std::move(result)]() mutable {
+                        std::move (*handler)(std::move(result));
+                    });
+            };
+
+            std::lock_guard lock(mutex_);
+            if (stopping_) {
+                complete(std::unexpected(Error{
+                    ErrorCode::Storage, "Database executor is stopping"}));
+                return;
+            }
+            if (queue_.size() >= queue_capacity_) {
+                complete(std::unexpected(Error{
+                    ErrorCode::Overloaded, "Database executor queue is full"}));
+                return;
+            }
+
+            queue_.emplace([this, operation = std::move(operation_ptr),
+                            complete = std::move(complete)]() mutable {
+                try {
+                    complete(std::invoke(*operation, service_));
+                } catch (const std::exception& exception) {
+                    complete(std::unexpected(
+                        Error{ErrorCode::Storage, exception.what()}));
+                } catch (...) {
+                    complete(std::unexpected(Error{
+                        ErrorCode::Storage, "Unknown database worker error"}));
+                }
+            });
+            condition_.notify_one();
+        },
+        std::forward<CompletionToken>(token));
 }
 
 }  // namespace app
