@@ -120,6 +120,11 @@ std::expected<std::string, std::string> SerializeJson(
 }
 
 std::expected<std::string, std::string> SerializeJson(
+    const std::vector<RecipeResponse>& responses) {
+    return WriteJson(responses);
+}
+
+std::expected<std::string, std::string> SerializeJson(
     const ErrorResponse& response) {
     return WriteJson(response);
 }

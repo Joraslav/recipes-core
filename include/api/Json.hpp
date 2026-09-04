@@ -51,6 +51,14 @@ namespace api {
 [[nodiscard]] std::expected<std::string, std::string> SerializeJson(
     const RecipeResponse& response);
 /**
+ * @brief Serializes persisted recipes to the API JSON representation.
+ * @param responses Recipe responses to serialize.
+ * @return JSON document or serialization error description.
+ * @exception_safety Strong guarantee.
+ */
+[[nodiscard]] std::expected<std::string, std::string> SerializeJson(
+    const std::vector<RecipeResponse>& responses);
+/**
  * @brief Serializes a public API error to JSON.
  * @param response Error response to serialize.
  * @return JSON document or serialization error description.
