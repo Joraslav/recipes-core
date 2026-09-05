@@ -31,6 +31,8 @@
 #include <exception>
 #include <expected>
 #include <format>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -138,8 +140,28 @@ void Server::Stop() noexcept {
     boost::system::error_code error;
     error = acceptor_.close(error);
     error = https_acceptor_.close(error);
+    CloseSessions();
     io_context_.stop();
     workers_.clear();
+}
+
+void Server::RegisterSession(const std::shared_ptr<Tcp::socket>& socket) {
+    const std::scoped_lock lock(sessions_mutex_);
+    sessions_.insert(socket);
+}
+
+void Server::UnregisterSession(const std::shared_ptr<Tcp::socket>& socket) {
+    const std::scoped_lock lock(sessions_mutex_);
+    sessions_.erase(socket);
+}
+
+void Server::CloseSessions() noexcept {
+    const std::scoped_lock lock(sessions_mutex_);
+    for (const auto& socket : sessions_) {
+        boost::system::error_code error;
+        error = socket->shutdown(Tcp::socket::shutdown_both, error);
+        error = socket->close(error);
+    }
 }
 
 uint16_t Server::HttpPort() const noexcept {
@@ -187,7 +209,10 @@ cobalt::task<void> Server::AcceptLoop() {
     try {
         while (started_) {
             auto socket = co_await acceptor_.async_accept(cobalt::use_op);
-            cobalt::spawn(io_context_, Session(std::move(socket)),
+            auto session_socket =
+                std::make_shared<Tcp::socket>(std::move(socket));
+            RegisterSession(session_socket);
+            cobalt::spawn(io_context_, Session(std::move(session_socket)),
                           asio::detached);
         }
     } catch (const std::exception&) {
@@ -195,9 +220,10 @@ cobalt::task<void> Server::AcceptLoop() {
     }
 }
 
-cobalt::task<void> Server::Session(Tcp::socket socket) {
+cobalt::task<void> Server::Session(
+    std::shared_ptr<Tcp::socket> session_socket) {
     try {
-        beast::tcp_stream stream{std::move(socket)};
+        beast::tcp_stream stream{std::move(*session_socket)};
         beast::flat_buffer buffer;
         while (stream.socket().is_open()) {
             stream.expires_after(
@@ -219,19 +245,25 @@ cobalt::task<void> Server::Session(Tcp::socket socket) {
                 boost::system::error_code error;
                 error =
                     stream.socket().shutdown(Tcp::socket::shutdown_send, error);
+                UnregisterSession(session_socket);
                 co_return;
             }
         }
     } catch (const std::exception&) {
+        UnregisterSession(session_socket);
         co_return;
     }
+    UnregisterSession(session_socket);
 }
 
 cobalt::task<void> Server::AcceptHttpsLoop() {
     try {
         while (started_) {
             auto socket = co_await https_acceptor_.async_accept(cobalt::use_op);
-            cobalt::spawn(io_context_, TlsSession(std::move(socket)),
+            auto session_socket =
+                std::make_shared<Tcp::socket>(std::move(socket));
+            RegisterSession(session_socket);
+            cobalt::spawn(io_context_, TlsSession(std::move(session_socket)),
                           asio::detached);
         }
     } catch (const std::exception&) {
@@ -239,10 +271,11 @@ cobalt::task<void> Server::AcceptHttpsLoop() {
     }
 }
 
-cobalt::task<void> Server::TlsSession(Tcp::socket socket) {
+cobalt::task<void> Server::TlsSession(
+    std::shared_ptr<Tcp::socket> session_socket) {
     try {
         ssl::stream<beast::tcp_stream> stream{
-            beast::tcp_stream{std::move(socket)}, tls_context_};
+            beast::tcp_stream{std::move(*session_socket)}, tls_context_};
         stream.next_layer().expires_after(
             chron::seconds{config_.request_timeout_seconds});
         co_await stream.async_handshake(ssl::stream_base::server,
@@ -269,12 +302,15 @@ cobalt::task<void> Server::TlsSession(Tcp::socket socket) {
                 error = stream.next_layer().socket().shutdown(
                     Tcp::socket::shutdown_both, error);
                 error = stream.next_layer().socket().close(error);
+                UnregisterSession(session_socket);
                 co_return;
             }
         }
     } catch (const std::exception&) {
+        UnregisterSession(session_socket);
         co_return;
     }
+    UnregisterSession(session_socket);
 }
 
 }  // namespace net

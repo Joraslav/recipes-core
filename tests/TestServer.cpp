@@ -157,4 +157,26 @@ TEST_F(TestServer, Start_BodyLimitExceeded_ClosesConnection) {
     server.Stop();
 }
 
+TEST_F(TestServer, Stop_ActiveKeepAliveConnection_ClosesSocket) {
+    ServerConfig config;
+    config.http = {.enabled = true, .address = "127.0.0.1", .port = 0};
+
+    Server server{database_executor, config};
+    const auto started = server.Start();
+    ASSERT_TRUE(started.has_value()) << started.error();
+
+    asio::io_context client_context;
+    asio::ip::tcp::socket socket{client_context};
+    const auto address = asio::ip::make_address("127.0.0.1");
+    socket.connect({address, server.HttpPort()});
+
+    server.Stop();
+
+    boost::system::error_code error;
+    std::array<char, 1> buffer{};
+    socket.read_some(asio::buffer(buffer), error);
+    EXPECT_TRUE(error == asio::error::eof ||
+                error == asio::error::connection_reset);
+}
+
 }  // namespace

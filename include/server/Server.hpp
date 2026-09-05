@@ -13,9 +13,12 @@
 
 #include <cstdint>
 #include <expected>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 namespace net {
@@ -69,13 +72,18 @@ class Server final {
     using Tcp = asio::ip::tcp;
 
     [[nodiscard]] cobalt::task<void> AcceptLoop();
-    [[nodiscard]] cobalt::task<void> Session(Tcp::socket socket);
+    [[nodiscard]] cobalt::task<void> Session(
+        std::shared_ptr<Tcp::socket> socket);
     [[nodiscard]] cobalt::task<void> AcceptHttpsLoop();
-    [[nodiscard]] cobalt::task<void> TlsSession(Tcp::socket socket);
+    [[nodiscard]] cobalt::task<void> TlsSession(
+        std::shared_ptr<Tcp::socket> socket);
     [[nodiscard]] std::expected<void, std::string> ConfigureTls();
     [[nodiscard]] static std::expected<void, std::string> ConfigureListener(
         Tcp::acceptor& acceptor, const config::ListenerConfig& config,
         std::string_view protocol);
+    void RegisterSession(const std::shared_ptr<Tcp::socket>& socket);
+    void UnregisterSession(const std::shared_ptr<Tcp::socket>& socket);
+    void CloseSessions() noexcept;
 
     app::DatabaseExecutor* database_executor_;
     config::ServerConfig config_;
@@ -85,6 +93,8 @@ class Server final {
     ssl::context tls_context_;
     Router router_;
     std::vector<std::jthread> workers_;
+    std::mutex sessions_mutex_;
+    std::unordered_set<std::shared_ptr<Tcp::socket>> sessions_;
     bool started_{false};
 };
 
