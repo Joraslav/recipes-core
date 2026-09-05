@@ -148,12 +148,41 @@ TEST_F(TestServer, Start_BodyLimitExceeded_ClosesConnection) {
     request.keep_alive(false);
     http::write(socket, request);
 
-    boost::system::error_code error;
-    std::array<char, 1> buffer{};
-    socket.read_some(asio::buffer(buffer), error);
+    beast::flat_buffer buffer;
+    http::response<http::string_body> response;
+    http::read(socket, buffer, response);
 
-    EXPECT_TRUE(error == asio::error::eof ||
-                error == asio::error::connection_reset);
+    EXPECT_EQ(response.result(), http::status::payload_too_large);
+    EXPECT_NE(response.body().find("payload_too_large"), std::string::npos);
+    server.Stop();
+}
+
+TEST_F(TestServer, Start_HeaderLimitExceeded_ReturnsPayloadTooLarge) {
+    ServerConfig config;
+    config.http = {.enabled = true, .address = "127.0.0.1", .port = 0};
+    config.body_limit = 1024;
+    config.header_limit = 128;
+
+    Server server{database_executor, config};
+    const auto started = server.Start();
+    ASSERT_TRUE(started.has_value()) << started.error();
+
+    asio::io_context client_context;
+    asio::ip::tcp::socket socket{client_context};
+    const auto address = asio::ip::make_address("127.0.0.1");
+    socket.connect({address, server.HttpPort()});
+
+    http::request<http::empty_body> request{http::verb::get, "/healthz", 11};
+    request.set(http::field::user_agent, std::string(256, 'x'));
+    request.keep_alive(false);
+    http::write(socket, request);
+
+    beast::flat_buffer buffer;
+    http::response<http::string_body> response;
+    http::read(socket, buffer, response);
+
+    EXPECT_EQ(response.result(), http::status::payload_too_large);
+    EXPECT_NE(response.body().find("payload_too_large"), std::string::npos);
     server.Stop();
 }
 

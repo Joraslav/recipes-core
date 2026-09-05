@@ -11,10 +11,14 @@
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/core/tcp_stream.hpp>
+#include <boost/beast/http/error.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/impl/error.hpp>
 #include <boost/beast/http/message_fwd.hpp>
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/http/parser_fwd.hpp>
 #include <boost/beast/http/read.hpp>
+#include <boost/beast/http/status.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <boost/beast/http/write.hpp>
@@ -23,6 +27,7 @@
 #include <boost/cobalt/task.hpp>
 #include <boost/system/detail/error_code.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/system/system_error.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -43,6 +48,26 @@ using app::DatabaseExecutor;
 using config::ServerConfig;
 
 namespace net {
+
+namespace {
+
+template <typename Stream>
+cobalt::task<void> SendPayloadLimitResponse(Stream stream, unsigned version) {
+    http::response<http::string_body> response{http::status::payload_too_large,
+                                               version};
+    response.set(http::field::content_type, "application/json");
+    response.keep_alive(false);
+    response.body() =
+        R"({"code":"payload_too_large","message":"Request exceeds configured limits"})";
+    response.prepare_payload();
+    try {
+        co_await http::async_write(stream, response, cobalt::use_op);
+    } catch (const std::exception&) {
+        co_return;
+    }
+}
+
+}  // namespace
 
 Server::Server(DatabaseExecutor& database_executor, ServerConfig config)
     : database_executor_(&database_executor),
@@ -231,8 +256,21 @@ cobalt::task<void> Server::Session(
             http::request_parser<http::string_body> parser;
             parser.body_limit(config_.body_limit);
             parser.header_limit(config_.header_limit);
-            co_await http::async_read(  // NOLINT (missing-includes)
-                stream, buffer, parser, cobalt::use_op);
+            bool payload_limit_exceeded = false;
+            try {
+                co_await http::async_read(  // NOLINT (missing-includes)
+                    stream, buffer, parser, cobalt::use_op);
+            } catch (const boost::system::system_error& exception) {
+                payload_limit_exceeded =
+                    exception.code() ==
+                        http::make_error_code(http::error::body_limit) ||
+                    exception.code() ==
+                        http::make_error_code(http::error::header_limit);
+            }
+            if (payload_limit_exceeded) {
+                co_await SendPayloadLimitResponse(std::move(stream), 11);
+                co_return;
+            }
             Request request = parser.release();
 
             auto response = co_await router_.HandleAsync(std::move(request));
@@ -288,8 +326,21 @@ cobalt::task<void> Server::TlsSession(
             http::request_parser<http::string_body> parser;
             parser.body_limit(config_.body_limit);
             parser.header_limit(config_.header_limit);
-            co_await http::async_read(  // NOLINT (missing-includes)
-                stream, buffer, parser, cobalt::use_op);
+            bool payload_limit_exceeded = false;
+            try {
+                co_await http::async_read(  // NOLINT (missing-includes)
+                    stream, buffer, parser, cobalt::use_op);
+            } catch (const boost::system::system_error& exception) {
+                payload_limit_exceeded =
+                    exception.code() ==
+                        http::make_error_code(http::error::body_limit) ||
+                    exception.code() ==
+                        http::make_error_code(http::error::header_limit);
+            }
+            if (payload_limit_exceeded) {
+                co_await SendPayloadLimitResponse(std::move(stream), 11);
+                co_return;
+            }
             Request request = parser.release();
             auto response = co_await router_.HandleAsync(std::move(request));
             const bool keep_alive = response.keep_alive();
