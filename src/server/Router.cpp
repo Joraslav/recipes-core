@@ -24,6 +24,9 @@
 #include <utility>
 #include <vector>
 
+namespace cobalt = boost::cobalt;
+using namespace std::string_view_literals;
+
 using api::ErrorResponse;
 using api::ParseProductRequest;
 using api::ParseRecipeRequest;
@@ -36,8 +39,6 @@ using app::ErrorCode;
 using app::RecipeService;
 using types::Product;
 using types::Recipe;
-
-namespace cobalt = boost::cobalt;
 
 namespace {
 
@@ -103,14 +104,28 @@ namespace {
     return response;
 }
 
+struct AllowHeader final {
+    std::string_view value;
+};
+
+struct ErrorPayload final {
+    std::string_view code;
+    std::string_view message;
+};
+
 [[nodiscard]] net::http::response<net::http::string_body> MakeErrorResponse(
     net::http::status status, unsigned version, bool keep_alive,
-    std::string_view code, std::string_view message) {
-    const ErrorResponse error{.code = std::string{code},
-                              .message = std::string{message}};
+    ErrorPayload payload, std::optional<AllowHeader> allow = std::nullopt) {
+    const ErrorResponse error{.code = std::string{payload.code},
+                              .message = std::string{payload.message}};
     const auto body = SerializeJson(error);
-    return MakeJsonResponse(status, version, keep_alive,
-                            body.value_or(R"({"code":"internal_error"})"));
+    auto response =
+        MakeJsonResponse(status, version, keep_alive,
+                         body.value_or(R"({"code":"internal_error"})"));
+    if (allow.has_value()) {
+        response.set(net::http::field::allow, allow->value);
+    }
+    return response;
 }
 
 [[nodiscard]] ProductResponse ToProductResponse(const Product& product) {
@@ -155,10 +170,31 @@ namespace {
             code = "overloaded";
             break;
         case ErrorCode::Storage:
+            code = "internal_error";
             break;
     }
-    return MakeErrorResponse(status, version, keep_alive, code,
-                             error.GetMessage());
+    std::string_view message = "Storage operation failed";
+    if (error.GetCode() != ErrorCode::Storage) {
+        message = error.GetMessage();
+    }
+    return MakeErrorResponse(status, version, keep_alive,
+                             {.code = code, .message = message});
+}
+
+[[nodiscard]] bool IsJsonContentType(
+    const net::http::request<net::http::string_body>& request) {
+    const auto content_type = request[net::http::field::content_type];
+    return content_type.starts_with("application/json");
+}
+
+[[nodiscard]] net::http::response<net::http::string_body>
+MakeMethodNotAllowedResponse(const net::Router::Request& request,
+                             AllowHeader allow) {
+    return MakeErrorResponse(
+        net::http::status::method_not_allowed, request.version(),
+        request.keep_alive(),
+        {.code = "method_not_allowed", .message = "HTTP method is not allowed"},
+        allow);
 }
 
 [[nodiscard]] std::optional<Product> ParseProduct(
@@ -215,27 +251,61 @@ http::response<http::string_body> Router::Handle(
     const http::request<http::string_body>& request) {
     if (request.target() == "/healthz") {
         if (request.method() != http::verb::get) {
-            return MakeErrorResponse(http::status::method_not_allowed,
-                                     request.version(), request.keep_alive(),
-                                     "method_not_allowed",
-                                     "Only GET is supported for /healthz");
+            return MakeErrorResponse(
+                http::status::method_not_allowed, request.version(),
+                request.keep_alive(),
+                {.code = "method_not_allowed",
+                 .message = "Only GET is supported for /healthz"});
         }
         return MakeJsonResponse(http::status::ok, request.version(),
                                 request.keep_alive(), R"({"status":"ok"})");
     }
 
-    return MakeErrorResponse(http::status::not_found, request.version(),
-                             request.keep_alive(), "not_found",
-                             "The requested resource was not found");
+    if (request.target() == "/v1/products" &&
+        request.method() != http::verb::get &&
+        request.method() != http::verb::post) {
+        return MakeMethodNotAllowedResponse(request,
+                                            AllowHeader{"GET, POST"sv});
+    }
+    if (request.target() == "/v1/recipes" &&
+        request.method() != http::verb::get &&
+        request.method() != http::verb::post) {
+        return MakeMethodNotAllowedResponse(request,
+                                            AllowHeader{"GET, POST"sv});
+    }
+    if (request.target() == "/v1/recipes/cookable" &&
+        request.method() != http::verb::get) {
+        return MakeMethodNotAllowedResponse(request, AllowHeader{"GET"sv});
+    }
+    if (ParseProductId(request.target()).has_value() &&
+        request.method() != http::verb::get &&
+        request.method() != http::verb::put &&
+        request.method() != http::verb::delete_) {
+        return MakeMethodNotAllowedResponse(request,
+                                            AllowHeader{"GET, PUT, DELETE"sv});
+    }
+    if (ParseRecipeId(request.target()).has_value() &&
+        request.method() != http::verb::get &&
+        request.method() != http::verb::put &&
+        request.method() != http::verb::delete_) {
+        return MakeMethodNotAllowedResponse(request,
+                                            AllowHeader{"GET, PUT, DELETE"sv});
+    }
+
+    return MakeErrorResponse(
+        http::status::not_found, request.version(), request.keep_alive(),
+        {.code = "not_found",
+         .message = "The requested resource was not found"});
 }
 
 cobalt::task<Router::Response> Router::HandleProducts(
     Request request, std::optional<int64_t> product_id) {
     if (database_executor_ == nullptr) {
-        co_return MakeErrorResponse(http::status::service_unavailable,
-                                    request.version(), request.keep_alive(),
-                                    "service_unavailable",
-                                    "Database service is unavailable");
+        co_return MakeErrorResponse(
+            http::status::service_unavailable, request.version(),
+            request.keep_alive(),
+            {.code = "service_unavailable",
+             .message = "Database service is unavailable"});
     }
 
     switch (request.method()) {
@@ -259,14 +329,21 @@ cobalt::task<Router::Response> Router::HandleProducts(
 }
 
 cobalt::task<Router::Response> Router::CreateProduct(Request request) {
+    if (!IsJsonContentType(request)) {
+        co_return MakeErrorResponse(
+            http::status::unsupported_media_type, request.version(),
+            request.keep_alive(),
+            {.code = "unsupported_media_type",
+             .message = "Content-Type must be application/json"});
+    }
     http::status parse_error_status = http::status::bad_request;
     std::string parse_error_message;
     const auto product =
         ParseProduct(request.body(), parse_error_status, parse_error_message);
     if (!product.has_value()) {
-        co_return MakeErrorResponse(parse_error_status, request.version(),
-                                    request.keep_alive(), "invalid_json",
-                                    parse_error_message);
+        co_return MakeErrorResponse(
+            parse_error_status, request.version(), request.keep_alive(),
+            {.code = "invalid_json", .message = parse_error_message});
     }
     const auto created_product = co_await database_executor_->AsyncSubmit(
         [product = *product](RecipeService& service) {
@@ -281,8 +358,8 @@ cobalt::task<Router::Response> Router::CreateProduct(Request request) {
     if (!body.has_value()) {
         co_return MakeErrorResponse(http::status::internal_server_error,
                                     request.version(), request.keep_alive(),
-                                    "serialization_error",
-                                    "Failed to serialize product");
+                                    {.code = "serialization_error",
+                                     .message = "Failed to serialize product"});
     }
     co_return MakeJsonResponse(http::status::created, request.version(),
                                request.keep_alive(), *body);
@@ -290,14 +367,21 @@ cobalt::task<Router::Response> Router::CreateProduct(Request request) {
 
 cobalt::task<Router::Response> Router::UpdateProduct(Request request,
                                                      int64_t product_id) {
+    if (!IsJsonContentType(request)) {
+        co_return MakeErrorResponse(
+            http::status::unsupported_media_type, request.version(),
+            request.keep_alive(),
+            {.code = "unsupported_media_type",
+             .message = "Content-Type must be application/json"});
+    }
     http::status parse_error_status = http::status::bad_request;
     std::string parse_error_message;
     const auto product =
         ParseProduct(request.body(), parse_error_status, parse_error_message);
     if (!product.has_value()) {
-        co_return MakeErrorResponse(parse_error_status, request.version(),
-                                    request.keep_alive(), "invalid_json",
-                                    parse_error_message);
+        co_return MakeErrorResponse(
+            parse_error_status, request.version(), request.keep_alive(),
+            {.code = "invalid_json", .message = parse_error_message});
     }
     const auto updated = co_await database_executor_->AsyncSubmit(
         [product_id, product = *product](RecipeService& service) {
@@ -340,16 +424,16 @@ cobalt::task<Router::Response> Router::GetProduct(Request request,
                                        request.version(), request.keep_alive());
     }
     if (!product_result->has_value()) {
-        co_return MakeErrorResponse(http::status::not_found, request.version(),
-                                    request.keep_alive(), "not_found",
-                                    "Product was not found");
+        co_return MakeErrorResponse(
+            http::status::not_found, request.version(), request.keep_alive(),
+            {.code = "not_found", .message = "Product was not found"});
     }
     const auto body = SerializeJson(ToProductResponse(product_result->value()));
     if (!body.has_value()) {
         co_return MakeErrorResponse(http::status::internal_server_error,
                                     request.version(), request.keep_alive(),
-                                    "serialization_error",
-                                    "Failed to serialize product");
+                                    {.code = "serialization_error",
+                                     .message = "Failed to serialize product"});
     }
     co_return MakeJsonResponse(http::status::ok, request.version(),
                                request.keep_alive(), *body);
@@ -370,10 +454,11 @@ cobalt::task<Router::Response> Router::ListProducts(Request request) {
     }
     const auto body = SerializeJson(response_products);
     if (!body.has_value()) {
-        co_return MakeErrorResponse(http::status::internal_server_error,
-                                    request.version(), request.keep_alive(),
-                                    "serialization_error",
-                                    "Failed to serialize products");
+        co_return MakeErrorResponse(
+            http::status::internal_server_error, request.version(),
+            request.keep_alive(),
+            {.code = "serialization_error",
+             .message = "Failed to serialize products"});
     }
     co_return MakeJsonResponse(http::status::ok, request.version(),
                                request.keep_alive(), *body);
@@ -382,10 +467,11 @@ cobalt::task<Router::Response> Router::ListProducts(Request request) {
 cobalt::task<Router::Response> Router::HandleRecipes(Request request,
                                                      bool cookable) {
     if (database_executor_ == nullptr) {
-        co_return MakeErrorResponse(http::status::service_unavailable,
-                                    request.version(), request.keep_alive(),
-                                    "service_unavailable",
-                                    "Database service is unavailable");
+        co_return MakeErrorResponse(
+            http::status::service_unavailable, request.version(),
+            request.keep_alive(),
+            {.code = "service_unavailable",
+             .message = "Database service is unavailable"});
     }
     const auto recipes_result = co_await database_executor_->AsyncSubmit(
         [cookable](RecipeService& service) {
@@ -406,22 +492,29 @@ cobalt::task<Router::Response> Router::HandleRecipes(Request request,
     if (!body.has_value()) {
         co_return MakeErrorResponse(http::status::internal_server_error,
                                     request.version(), request.keep_alive(),
-                                    "serialization_error",
-                                    "Failed to serialize recipes");
+                                    {.code = "serialization_error",
+                                     .message = "Failed to serialize recipes"});
     }
     co_return MakeJsonResponse(http::status::ok, request.version(),
                                request.keep_alive(), *body);
 }
 
 cobalt::task<Router::Response> Router::CreateRecipe(Request request) {
+    if (!IsJsonContentType(request)) {
+        co_return MakeErrorResponse(
+            http::status::unsupported_media_type, request.version(),
+            request.keep_alive(),
+            {.code = "unsupported_media_type",
+             .message = "Content-Type must be application/json"});
+    }
     http::status parse_error_status = http::status::bad_request;
     std::string parse_error_message;
     const auto recipe =
         ParseRecipe(request.body(), parse_error_status, parse_error_message);
     if (!recipe.has_value()) {
-        co_return MakeErrorResponse(parse_error_status, request.version(),
-                                    request.keep_alive(), "invalid_json",
-                                    parse_error_message);
+        co_return MakeErrorResponse(
+            parse_error_status, request.version(), request.keep_alive(),
+            {.code = "invalid_json", .message = parse_error_message});
     }
 
     const auto created_recipe = co_await database_executor_->AsyncSubmit(
@@ -437,8 +530,8 @@ cobalt::task<Router::Response> Router::CreateRecipe(Request request) {
     if (!body.has_value()) {
         co_return MakeErrorResponse(http::status::internal_server_error,
                                     request.version(), request.keep_alive(),
-                                    "serialization_error",
-                                    "Failed to serialize recipe");
+                                    {.code = "serialization_error",
+                                     .message = "Failed to serialize recipe"});
     }
     co_return MakeJsonResponse(http::status::created, request.version(),
                                request.keep_alive(), *body);
@@ -446,14 +539,21 @@ cobalt::task<Router::Response> Router::CreateRecipe(Request request) {
 
 cobalt::task<Router::Response> Router::UpdateRecipe(Request request,
                                                     int64_t recipe_id) {
+    if (!IsJsonContentType(request)) {
+        co_return MakeErrorResponse(
+            http::status::unsupported_media_type, request.version(),
+            request.keep_alive(),
+            {.code = "unsupported_media_type",
+             .message = "Content-Type must be application/json"});
+    }
     http::status parse_error_status = http::status::bad_request;
     std::string parse_error_message;
     const auto recipe =
         ParseRecipe(request.body(), parse_error_status, parse_error_message);
     if (!recipe.has_value()) {
-        co_return MakeErrorResponse(parse_error_status, request.version(),
-                                    request.keep_alive(), "invalid_json",
-                                    parse_error_message);
+        co_return MakeErrorResponse(
+            parse_error_status, request.version(), request.keep_alive(),
+            {.code = "invalid_json", .message = parse_error_message});
     }
 
     const auto updated = co_await database_executor_->AsyncSubmit(
@@ -497,16 +597,16 @@ cobalt::task<Router::Response> Router::GetRecipe(Request request,
                                        request.keep_alive());
     }
     if (!recipe_result->has_value()) {
-        co_return MakeErrorResponse(http::status::not_found, request.version(),
-                                    request.keep_alive(), "not_found",
-                                    "Recipe was not found");
+        co_return MakeErrorResponse(
+            http::status::not_found, request.version(), request.keep_alive(),
+            {.code = "not_found", .message = "Recipe was not found"});
     }
     const auto body = SerializeJson(ToRecipeResponse(recipe_result->value()));
     if (!body.has_value()) {
         co_return MakeErrorResponse(http::status::internal_server_error,
                                     request.version(), request.keep_alive(),
-                                    "serialization_error",
-                                    "Failed to serialize recipe");
+                                    {.code = "serialization_error",
+                                     .message = "Failed to serialize recipe"});
     }
     co_return MakeJsonResponse(http::status::ok, request.version(),
                                request.keep_alive(), *body);
@@ -535,10 +635,11 @@ cobalt::task<Router::Response> Router::HandleAsync(Request request) {
     }
     if (is_recipe_collection || is_cookable_recipes) {
         if (database_executor_ == nullptr) {
-            co_return MakeErrorResponse(http::status::service_unavailable,
-                                        request.version(), request.keep_alive(),
-                                        "service_unavailable",
-                                        "Database service is unavailable");
+            co_return MakeErrorResponse(
+                http::status::service_unavailable, request.version(),
+                request.keep_alive(),
+                {.code = "service_unavailable",
+                 .message = "Database service is unavailable"});
         }
         if (is_recipe_collection && request.method() == http::verb::post) {
             co_return co_await CreateRecipe(std::move(request));
@@ -550,10 +651,11 @@ cobalt::task<Router::Response> Router::HandleAsync(Request request) {
     }
     if (is_recipe_item) {
         if (database_executor_ == nullptr) {
-            co_return MakeErrorResponse(http::status::service_unavailable,
-                                        request.version(), request.keep_alive(),
-                                        "service_unavailable",
-                                        "Database service is unavailable");
+            co_return MakeErrorResponse(
+                http::status::service_unavailable, request.version(),
+                request.keep_alive(),
+                {.code = "service_unavailable",
+                 .message = "Database service is unavailable"});
         }
         switch (request.method()) {
             case http::verb::get:

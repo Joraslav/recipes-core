@@ -57,6 +57,16 @@ TEST_F(TestHttpRouter, Handle_HealthPost_ReturnsMethodNotAllowed) {
     EXPECT_NE(response.body().find("method_not_allowed"), std::string::npos);
 }
 
+TEST_F(TestHttpRouter, Handle_ProductCollectionDelete_ReturnsMethodNotAllowed) {
+    const http::request<http::string_body> request{http::verb::delete_,
+                                                   "/v1/products", 11};
+
+    const auto response = net::Router::Handle(request);
+
+    EXPECT_EQ(response.result(), http::status::method_not_allowed);
+    EXPECT_EQ(response[http::field::allow], "GET, POST");
+}
+
 TEST_F(TestHttpRouter, Handle_UnknownTarget_ReturnsNotFound) {
     const http::request<http::string_body> request{http::verb::get,
                                                    "/v1/products", 11};
@@ -114,6 +124,7 @@ TEST_F(TestHttpRouter, HandleAsync_ProductPost_ReturnsCreatedProduct) {
     auto response_future = completion.get_future();
     http::request<http::string_body> request{http::verb::post, "/v1/products",
                                              11};
+    request.set(http::field::content_type, "application/json");
     request.body() = R"({"name":"Milk","amount":1,"dimension":"l"})";
 
     boost::cobalt::spawn(
@@ -164,6 +175,7 @@ TEST_F(TestHttpRouter, HandleAsync_ProductCrudById_CompletesLifecycle) {
 
     http::request<http::string_body> create_request{http::verb::post,
                                                     "/v1/products", 11};
+    create_request.set(http::field::content_type, "application/json");
     create_request.body() = R"({"name":"Milk","amount":1,"dimension":"l"})";
     const auto created_response = send_request(std::move(create_request));
     ASSERT_EQ(created_response.result(), http::status::created);
@@ -180,6 +192,7 @@ TEST_F(TestHttpRouter, HandleAsync_ProductCrudById_CompletesLifecycle) {
 
     http::request<http::string_body> update_request{http::verb::put,
                                                     product_target, 11};
+    update_request.set(http::field::content_type, "application/json");
     update_request.body() = R"({"name":"Milk","amount":2,"dimension":"l"})";
     const auto updated_response = send_request(std::move(update_request));
     ASSERT_EQ(updated_response.result(), http::status::ok);
@@ -271,6 +284,7 @@ TEST_F(TestHttpRouter, HandleAsync_RecipeCrudById_CompletesLifecycle) {
 
     http::request<http::string_body> create_request{http::verb::post,
                                                     "/v1/recipes", 11};
+    create_request.set(http::field::content_type, "application/json");
     create_request.body() =
         R"({"name":"Tea","ingredients":[{"name":"Water","amount":200,"dimension":"ml"}]})";
     const auto created_response = send_request(std::move(create_request));
@@ -289,6 +303,7 @@ TEST_F(TestHttpRouter, HandleAsync_RecipeCrudById_CompletesLifecycle) {
 
     http::request<http::string_body> update_request{http::verb::put,
                                                     recipe_target, 11};
+    update_request.set(http::field::content_type, "application/json");
     update_request.body() =
         R"({"name":"Iced tea","ingredients":[{"name":"Water","amount":300,"dimension":"ml"}]})";
     const auto updated_response = send_request(std::move(update_request));
