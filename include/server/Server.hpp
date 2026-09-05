@@ -6,6 +6,7 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl/context.hpp>
 #include <boost/beast/http/message_fwd.hpp>
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <boost/cobalt/task.hpp>
@@ -19,6 +20,7 @@
 namespace net {
 
 namespace asio = boost::asio;
+namespace ssl = asio::ssl;
 namespace cobalt = boost::cobalt;
 
 /**
@@ -59,16 +61,24 @@ class Server final {
     /** @brief Returns the bound HTTP port, including an OS-assigned port. */
     [[nodiscard]] uint16_t HttpPort() const noexcept;
 
+    /** @brief Returns the bound HTTPS port, or zero when HTTPS is disabled. */
+    [[nodiscard]] uint16_t HttpsPort() const noexcept;
+
  private:
     using Tcp = asio::ip::tcp;
 
     [[nodiscard]] cobalt::task<void> AcceptLoop();
     [[nodiscard]] cobalt::task<void> Session(Tcp::socket socket);
+    [[nodiscard]] cobalt::task<void> AcceptHttpsLoop();
+    [[nodiscard]] cobalt::task<void> TlsSession(Tcp::socket socket);
+    [[nodiscard]] std::expected<void, std::string> ConfigureTls();
 
     app::DatabaseExecutor* database_executor_;
     config::ServerConfig config_;
     asio::io_context io_context_;
     Tcp::acceptor acceptor_;
+    Tcp::acceptor https_acceptor_;
+    ssl::context tls_context_;
     Router router_;
     std::vector<std::jthread> workers_;
     bool started_{false};

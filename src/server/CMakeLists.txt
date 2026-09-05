@@ -19,5 +19,7 @@ target_link_libraries(_server PUBLIC
   _app
   Boost::boost
   Boost::cobalt
+  Boost::cobalt_io_ssl
   OpenSSL::SSL
+  OpenSSL::Crypto
 )

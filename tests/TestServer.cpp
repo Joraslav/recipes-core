@@ -18,6 +18,8 @@
 #include <boost/beast/http/verb.hpp>
 #include <boost/beast/http/write.hpp>
 
+#include <string>
+
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -59,6 +61,20 @@ TEST_F(TestServer, Start_HealthRequest_ReturnsOkAndStops) {
     EXPECT_EQ(response.result(), http::status::ok);
     EXPECT_EQ(response.body(), R"({"status":"ok"})");
     server.Stop();
+}
+
+TEST_F(TestServer, Start_HttpsWithoutCredentials_ReturnsError) {
+    ServerConfig config;
+    config.http = {.enabled = true, .address = "127.0.0.1", .port = 0};
+    config.https = {.enabled = true, .address = "127.0.0.1", .port = 0};
+
+    Server server{database_executor, config};
+    const auto started = server.Start();
+
+    ASSERT_FALSE(started.has_value());
+    EXPECT_NE(started.error().find("certificate"), std::string::npos);
+    EXPECT_EQ(server.HttpPort(), 0);
+    EXPECT_EQ(server.HttpsPort(), 0);
 }
 
 }  // namespace
