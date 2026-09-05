@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <expected>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -72,6 +73,9 @@ class Server final {
     [[nodiscard]] cobalt::task<void> AcceptHttpsLoop();
     [[nodiscard]] cobalt::task<void> TlsSession(Tcp::socket socket);
     [[nodiscard]] std::expected<void, std::string> ConfigureTls();
+    [[nodiscard]] static std::expected<void, std::string> ConfigureListener(
+        Tcp::acceptor& acceptor, const config::ListenerConfig& config,
+        std::string_view protocol);
 
     app::DatabaseExecutor* database_executor_;
     config::ServerConfig config_;

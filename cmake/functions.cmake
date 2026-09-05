@@ -23,21 +23,20 @@ function(ADD_GTEST_TARGET TEST_NAME)
 
   add_executable(${TEST_NAME} ${ARG_SOURCES})
 
-  target_link_libraries(${TEST_NAME}
-        PRIVATE
-            GTest::gtest_main
-            ${ARG_LINK_LIBS}
-    )
+  target_link_libraries(${TEST_NAME} PRIVATE
+    GTest::gtest_main
+    ${ARG_LINK_LIBS}
+  )
 
   if(ARG_COMPILE_DEFINITIONS)
     target_compile_definitions(${TEST_NAME}
-            PRIVATE
-                ${ARG_COMPILE_DEFINITIONS}
-        )
+      PRIVATE
+      ${ARG_COMPILE_DEFINITIONS}
+    )
   endif()
 
   gtest_discover_tests(${TEST_NAME}
-        NO_PRETTY_VALUES
-        # NO_PRETTY_TYPES
-    )
+    NO_PRETTY_VALUES
+    # NO_PRETTY_TYPES
+  )
 endfunction()

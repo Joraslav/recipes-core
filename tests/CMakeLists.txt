@@ -87,6 +87,8 @@ ADD_GTEST_TARGET(TestServer
     TestServer.cpp
     LINK_LIBS
     _server
+    COMPILE_DEFINITIONS
+        RECIPES_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
 ADD_GTEST_TARGET(TestServerConfig

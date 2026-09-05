@@ -99,6 +99,17 @@ If you want to do it manually:
 ctest --test-dir build/Debug --build-config Debug --output-on-failure --parallel 4
 ```
 
+### Test data
+
+The `tests/data/` directory contains committed fixtures used by integration
+tests. In particular, `tests/data/certs/server.crt` and
+`tests/data/certs/server.key` are a self-signed certificate and private key
+created exclusively for local and CI HTTPS tests.
+
+The test private key is intentionally not a secret and must never be reused
+in production or deployed to a real server. Runtime files, user data and
+SQLite databases belong under `data/` or `out/` and should not be committed.
+
 ## Run the application
 
 After building, run the `Recipes` executable from your build directory:
@@ -130,7 +141,9 @@ To enable HTTPS, provide certificate and private-key files and use:
 
 The HTTPS listener performs a TLS server handshake before passing the
 connection to the same Beast session and REST router used by HTTP. The
-certificate paths are relative to the process working directory.
+certificate paths are relative to the process working directory. The
+certificate and key under `tests/data/certs/` are test-only assets and are not
+valid production credentials.
 
 The application reads from a SQLite database. By default, it expects:
 

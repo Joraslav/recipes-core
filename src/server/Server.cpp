@@ -29,6 +29,7 @@
 #include <expected>
 #include <format>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace beast = boost::beast;
@@ -51,34 +52,16 @@ std::expected<void, std::string> Server::Start() {
     if (started_) {
         return std::unexpected("Server is already started");
     }
-    if (!config_.http.enabled) {
-        return std::unexpected("HTTP listener is disabled");
+    if (!config_.http.enabled && !config_.https.enabled) {
+        return std::unexpected("At least one listener must be enabled");
     }
 
-    boost::system::error_code error;
-    const auto address = asio::ip::make_address(config_.http.address, error);
-    if (error) {
-        return std::unexpected(
-            std::format("Invalid HTTP address: {}", error.message()));
-    }
-
-    error = acceptor_.open(address.is_v6() ? Tcp::v6() : Tcp::v4(), error);
-    if (!error) {
-        error = acceptor_.set_option(Tcp::acceptor::reuse_address(true), error);
-    }
-    if (!error) {
-        error =
-            acceptor_.bind(Tcp::endpoint{address, config_.http.port}, error);
-    }
-    if (!error) {
-        error =
-            acceptor_.listen(asio::socket_base::max_listen_connections, error);
-    }
-    if (error) {
-        boost::system::error_code close_error;
-        close_error = acceptor_.close(close_error);
-        return std::unexpected(
-            std::format("Failed to start HTTP listener: {}", error.message()));
+    if (config_.http.enabled) {
+        const auto listener_result =
+            ConfigureListener(acceptor_, config_.http, "HTTP");
+        if (!listener_result.has_value()) {
+            return std::unexpected(listener_result.error());
+        }
     }
 
     if (config_.https.enabled) {
@@ -88,37 +71,20 @@ std::expected<void, std::string> Server::Start() {
             close_error = acceptor_.close(close_error);
             return std::unexpected(tls_result.error());
         }
-        const auto https_address =
-            asio::ip::make_address(config_.https.address, error);
-        if (error) {
-            return std::unexpected(
-                std::format("Invalid HTTPS address: {}", error.message()));
-        }
-        error = https_acceptor_.open(
-            https_address.is_v6() ? Tcp::v6() : Tcp::v4(), error);
-        if (!error) {
-            error = https_acceptor_.set_option(
-                Tcp::acceptor::reuse_address(true), error);
-        }
-        if (!error) {
-            error = https_acceptor_.bind(
-                Tcp::endpoint{https_address, config_.https.port}, error);
-        }
-        if (!error) {
-            error = https_acceptor_.listen(
-                asio::socket_base::max_listen_connections, error);
-        }
-        if (error) {
+        const auto listener_result =
+            ConfigureListener(https_acceptor_, config_.https, "HTTPS");
+        if (!listener_result.has_value()) {
             boost::system::error_code close_error;
             close_error = https_acceptor_.close(close_error);
             close_error = acceptor_.close(close_error);
-            return std::unexpected(std::format(
-                "Failed to start HTTPS listener: {}", error.message()));
+            return std::unexpected(listener_result.error());
         }
     }
 
     started_ = true;
-    cobalt::spawn(io_context_, AcceptLoop(), asio::detached);
+    if (config_.http.enabled) {
+        cobalt::spawn(io_context_, AcceptLoop(), asio::detached);
+    }
     if (config_.https.enabled) {
         cobalt::spawn(io_context_, AcceptHttpsLoop(), asio::detached);
     }
@@ -126,6 +92,36 @@ std::expected<void, std::string> Server::Start() {
     workers_.reserve(worker_count);
     for (size_t index = 0; index < worker_count; ++index) {
         workers_.emplace_back([this] { io_context_.run(); });
+    }
+    return {};
+}
+
+std::expected<void, std::string> Server::ConfigureListener(
+    Tcp::acceptor& acceptor, const config::ListenerConfig& config,
+    std::string_view protocol) {
+    boost::system::error_code error;
+    const auto address = asio::ip::make_address(config.address, error);
+    if (error) {
+        return std::unexpected(
+            std::format("Invalid {} address: {}", protocol, error.message()));
+    }
+
+    error = acceptor.open(address.is_v6() ? Tcp::v6() : Tcp::v4(), error);
+    if (!error) {
+        error = acceptor.set_option(Tcp::acceptor::reuse_address(true), error);
+    }
+    if (!error) {
+        error = acceptor.bind(Tcp::endpoint{address, config.port}, error);
+    }
+    if (!error) {
+        error =
+            acceptor.listen(asio::socket_base::max_listen_connections, error);
+    }
+    if (error) {
+        boost::system::error_code close_error;
+        close_error = acceptor.close(close_error);
+        return std::unexpected(std::format("Failed to start {} listener: {}",
+                                           protocol, error.message()));
     }
     return {};
 }
@@ -247,7 +243,9 @@ cobalt::task<void> Server::TlsSession(Tcp::socket socket) {
                 stream, response, cobalt::use_op);
             if (!keep_alive) {
                 boost::system::error_code error;
-                error = stream.shutdown(error);
+                error = stream.next_layer().shutdown(Tcp::socket::shutdown_both,
+                                                     error);
+                error = stream.next_layer().close(error);
                 co_return;
             }
         }
