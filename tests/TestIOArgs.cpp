@@ -43,6 +43,7 @@ TEST_F(TestIOArgs, ParseArgs_EmptyInput_ReturnsDefaultConfig) {
     EXPECT_FALSE(parsed.ShowHelp());
     EXPECT_EQ(parsed.App().recipe_selection, RecipeSelection::All);
     EXPECT_EQ(parsed.App().db_path, GetProjectDataDir() / "table.db");
+    EXPECT_TRUE(parsed.App().server_config_path.empty());
     EXPECT_TRUE(parsed.App().products.empty());
     EXPECT_TRUE(parsed.App().recipes.empty());
     EXPECT_TRUE(parsed.Out().is_full_info);
@@ -96,6 +97,17 @@ TEST_F(TestIOArgs, ParseArgs_SelectionAndPaths_SetExpectedValues) {
     EXPECT_EQ(parsed.Out().yaml_out_path, "tmp/r.yaml");
 }
 
+TEST_F(TestIOArgs, ParseArgs_ServerConfigPath_SetsExpectedValue) {
+    const std::vector<std::string> args{"recipes",
+                                        "--server-config=config/server.yaml"};
+    const auto argv = BuildArgv(args);
+
+    const auto parse_result = ParseArgs(std::span(argv));
+
+    ASSERT_TRUE(parse_result.has_value());
+    EXPECT_EQ(parse_result->App().server_config_path, "config/server.yaml");
+}
+
 TEST_F(TestIOArgs, ParseArgs_AllRecipes_OverridesCookable) {
     const std::vector<std::string> args{"recipes", "--cookable",
                                         "--all-recipes"};
@@ -145,6 +157,7 @@ TEST_F(TestIOArgs, BuildUsage_ContainsUpdatedFlags) {
     EXPECT_NE(usage.find("--cookable"), std::string::npos);
     EXPECT_NE(usage.find("--json-out=<path>"), std::string::npos);
     EXPECT_NE(usage.find("--db-path=<path>"), std::string::npos);
+    EXPECT_NE(usage.find("--server-config=<path>"), std::string::npos);
 }
 
 TEST_F(TestIOArgs, ParseArgs_EqualJsonAndYamlOutputPaths_ReturnsError) {

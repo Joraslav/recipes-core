@@ -31,6 +31,7 @@ class Args final {
     struct AppArgs final {
         types::RecipeSelection recipe_selection{types::RecipeSelection::All};
         std::filesystem::path db_path{GetProjectDataDir() / "table.db"};
+        std::filesystem::path server_config_path;
         std::vector<types::Product> products;
         std::vector<types::Recipe> recipes;
     };

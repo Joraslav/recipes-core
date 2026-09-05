@@ -107,6 +107,31 @@ After building, run the `Recipes` executable from your build directory:
 ./build/Debug/Recipes --help
 ```
 
+## Run the HTTP/HTTPS server
+
+The server starts when the `--server-config` option is provided. The
+configuration format is selected by the file extension and can be JSON, YAML
+or YML.
+
+Start the HTTP listener using the sample configuration:
+
+```bash
+./build/Debug/Recipes --server-config=config/server.json
+```
+
+The process prints the bound HTTP port and stays alive until it receives
+`SIGINT` or `SIGTERM`. Stop a foreground process with `Ctrl+C`.
+
+To enable HTTPS, provide certificate and private-key files and use:
+
+```bash
+./build/Debug/Recipes --server-config=config/server-https.json
+```
+
+The HTTPS listener performs a TLS server handshake before passing the
+connection to the same Beast session and REST router used by HTTP. The
+certificate paths are relative to the process working directory.
+
 The application reads from a SQLite database. By default, it expects:
 
 ```text

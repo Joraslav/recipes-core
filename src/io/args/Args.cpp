@@ -54,6 +54,7 @@ constexpr std::array kFlags = {
     FlagInfo{"--json-out"sv, FlagInfo::Type::Value},
     FlagInfo{"--yaml-out"sv, FlagInfo::Type::Value},
     FlagInfo{"--db-path"sv, FlagInfo::Type::Value},
+    FlagInfo{"--server-config"sv, FlagInfo::Type::Value},
 
     FlagInfo{"--add-products"sv, FlagInfo::Type::Command},
     FlagInfo{"--add-recipes"sv, FlagInfo::Type::Command},
@@ -147,6 +148,8 @@ std::expected<void, std::string> SetValueFlag(
         args.OutMutable().yaml_out_path = fs::path{value};
     } else if (option == "--db-path"sv) {
         args.AppMutable().db_path = fs::path{value};
+    } else if (option == "--server-config"sv) {
+        args.AppMutable().server_config_path = fs::path{value};
     }
 
     if (args.Out().json_out_path == args.Out().yaml_out_path) {
@@ -241,6 +244,7 @@ std::string BuildUsage(std::string_view program_name) {
     usage += "  --json-out=<path>        JSON output path\n";
     usage += "  --yaml-out=<path>        YAML output path\n";
     usage += "  --db-path=<path>         SQL database path\n";
+    usage += "  --server-config=<path>   Start HTTP/HTTPS server from config\n";
     return usage;
 }
 

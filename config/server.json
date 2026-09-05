@@ -1,0 +1,23 @@
+{
+  "http": {
+    "enabled": true,
+    "address": "127.0.0.1",
+    "port": 8080
+  },
+  "https": {
+    "enabled": false,
+    "address": "127.0.0.1",
+    "port": 8443
+  },
+  "tls": {
+    "certificate_path": "certs/server.crt",
+    "private_key_path": "certs/server.key",
+    "certificate_chain_path": ""
+  },
+  "database_path": "data/recipes.db",
+  "network_threads": 2,
+  "database_queue_capacity": 128,
+  "header_limit": 8192,
+  "body_limit": 1048576,
+  "request_timeout_seconds": 30
+}
