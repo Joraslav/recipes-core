@@ -1,0 +1,64 @@
+#include "gtest/gtest.h"
+
+#include "app/DatabaseExecutor.hpp"
+#include "config/ServerConfig.hpp"
+#include "server/Server.hpp"
+
+#include <boost/asio/connect.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/beast/http/empty_body.hpp>
+#include <boost/beast/http/message_fwd.hpp>
+#include <boost/beast/http/read.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/string_body_fwd.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/beast/http/write.hpp>
+
+namespace asio = boost::asio;
+namespace beast = boost::beast;
+namespace http = beast::http;
+
+using app::DatabaseExecutor;
+using config::ServerConfig;
+using net::Server;
+
+namespace {
+
+class TestServer : public ::testing::Test {
+ protected:
+    DatabaseExecutor database_executor{":memory:", 8};
+};
+
+TEST_F(TestServer, Start_HealthRequest_ReturnsOkAndStops) {
+    ServerConfig config;
+    config.http = {.enabled = true, .address = "127.0.0.1", .port = 0};
+    config.network_threads = 2;
+
+    Server server{database_executor, config};
+    const auto started = server.Start();
+    ASSERT_TRUE(started.has_value()) << started.error();
+    ASSERT_NE(server.HttpPort(), 0);
+
+    asio::io_context client_context;
+    asio::ip::tcp::socket socket{client_context};
+    const auto address = asio::ip::make_address("127.0.0.1");
+    socket.connect({address, server.HttpPort()});
+
+    http::request<http::empty_body> request{http::verb::get, "/healthz", 11};
+    request.keep_alive(false);
+    http::write(socket, request);  // NOLINT (missing-includes)
+
+    beast::flat_buffer buffer;
+    http::response<http::string_body> response;
+    http::read(socket, buffer, response);  // NOLINT (missing-includes)
+
+    EXPECT_EQ(response.result(), http::status::ok);
+    EXPECT_EQ(response.body(), R"({"status":"ok"})");
+    server.Stop();
+}
+
+}  // namespace

@@ -61,12 +61,12 @@ class Router final {
     [[nodiscard]] boost::cobalt::task<Response> HandleRecipes(Request request,
                                                               bool cookable);
     [[nodiscard]] boost::cobalt::task<Response> CreateRecipe(Request request);
-    [[nodiscard]] boost::cobalt::task<Response> UpdateRecipe(
-        Request request, int64_t recipe_id);
-    [[nodiscard]] boost::cobalt::task<Response> DeleteRecipe(
-        Request request, int64_t recipe_id);
+    [[nodiscard]] boost::cobalt::task<Response> UpdateRecipe(Request request,
+                                                             int64_t recipe_id);
+    [[nodiscard]] boost::cobalt::task<Response> DeleteRecipe(Request request,
+                                                             int64_t recipe_id);
     [[nodiscard]] boost::cobalt::task<Response> GetRecipe(Request request,
-                                                           int64_t recipe_id);
+                                                          int64_t recipe_id);
 
     app::DatabaseExecutor* database_executor_;
 };

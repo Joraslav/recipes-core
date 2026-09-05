@@ -179,9 +179,9 @@ namespace {
     return Product{product_request->name, product_request->amount, *dimension};
 }
 
-[[nodiscard]] std::optional<Recipe> ParseRecipe(
-    std::string_view body, net::http::status& error_status,
-    std::string& error_message) {
+[[nodiscard]] std::optional<Recipe> ParseRecipe(std::string_view body,
+                                                net::http::status& error_status,
+                                                std::string& error_message) {
     const auto recipe_request = ParseRecipeRequest(body);
     if (!recipe_request.has_value()) {
         error_status = net::http::status::bad_request;
@@ -199,7 +199,7 @@ namespace {
             return std::nullopt;
         }
         ingredients.emplace_back(ingredient_request.name,
-                                ingredient_request.amount, *dimension);
+                                 ingredient_request.amount, *dimension);
     }
     return Recipe{recipe_request->name, std::move(ingredients)};
 }
@@ -416,8 +416,8 @@ cobalt::task<Router::Response> Router::HandleRecipes(Request request,
 cobalt::task<Router::Response> Router::CreateRecipe(Request request) {
     http::status parse_error_status = http::status::bad_request;
     std::string parse_error_message;
-    const auto recipe = ParseRecipe(request.body(), parse_error_status,
-                                    parse_error_message);
+    const auto recipe =
+        ParseRecipe(request.body(), parse_error_status, parse_error_message);
     if (!recipe.has_value()) {
         co_return MakeErrorResponse(parse_error_status, request.version(),
                                     request.keep_alive(), "invalid_json",
@@ -445,11 +445,11 @@ cobalt::task<Router::Response> Router::CreateRecipe(Request request) {
 }
 
 cobalt::task<Router::Response> Router::UpdateRecipe(Request request,
-                                                     int64_t recipe_id) {
+                                                    int64_t recipe_id) {
     http::status parse_error_status = http::status::bad_request;
     std::string parse_error_message;
-    const auto recipe = ParseRecipe(request.body(), parse_error_status,
-                                    parse_error_message);
+    const auto recipe =
+        ParseRecipe(request.body(), parse_error_status, parse_error_message);
     if (!recipe.has_value()) {
         co_return MakeErrorResponse(parse_error_status, request.version(),
                                     request.keep_alive(), "invalid_json",
@@ -469,7 +469,7 @@ cobalt::task<Router::Response> Router::UpdateRecipe(Request request,
 }
 
 cobalt::task<Router::Response> Router::DeleteRecipe(Request request,
-                                                     int64_t recipe_id) {
+                                                    int64_t recipe_id) {
     const auto deleted = co_await database_executor_->AsyncSubmit(
         [recipe_id](RecipeService& service) {
             return service.DeleteRecipe(recipe_id);
@@ -486,7 +486,7 @@ cobalt::task<Router::Response> Router::DeleteRecipe(Request request,
 }
 
 cobalt::task<Router::Response> Router::GetRecipe(Request request,
-                                                  int64_t recipe_id) {
+                                                 int64_t recipe_id) {
     const auto recipe_result = co_await database_executor_->AsyncSubmit(
         [recipe_id](RecipeService& service) {
             return service.GetRecipe(recipe_id);
@@ -535,10 +535,10 @@ cobalt::task<Router::Response> Router::HandleAsync(Request request) {
     }
     if (is_recipe_collection || is_cookable_recipes) {
         if (database_executor_ == nullptr) {
-            co_return MakeErrorResponse(
-                http::status::service_unavailable, request.version(),
-                request.keep_alive(), "service_unavailable",
-                "Database service is unavailable");
+            co_return MakeErrorResponse(http::status::service_unavailable,
+                                        request.version(), request.keep_alive(),
+                                        "service_unavailable",
+                                        "Database service is unavailable");
         }
         if (is_recipe_collection && request.method() == http::verb::post) {
             co_return co_await CreateRecipe(std::move(request));
@@ -550,10 +550,10 @@ cobalt::task<Router::Response> Router::HandleAsync(Request request) {
     }
     if (is_recipe_item) {
         if (database_executor_ == nullptr) {
-            co_return MakeErrorResponse(
-                http::status::service_unavailable, request.version(),
-                request.keep_alive(), "service_unavailable",
-                "Database service is unavailable");
+            co_return MakeErrorResponse(http::status::service_unavailable,
+                                        request.version(), request.keep_alive(),
+                                        "service_unavailable",
+                                        "Database service is unavailable");
         }
         switch (request.method()) {
             case http::verb::get:
