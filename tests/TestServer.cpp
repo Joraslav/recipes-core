@@ -4,7 +4,9 @@
 #include "config/ServerConfig.hpp"
 #include "server/Server.hpp"
 
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -21,7 +23,9 @@
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/beast/http/write.hpp>
+#include <boost/system/detail/error_code.hpp>
 
+#include <array>
 #include <string>
 
 namespace asio = boost::asio;
@@ -119,6 +123,37 @@ TEST_F(TestServer, Start_HttpsHealthRequest_ReturnsOkAndStops) {
 
     EXPECT_EQ(response.result(), http::status::ok);
     EXPECT_EQ(response.body(), R"({"status":"ok"})");
+    server.Stop();
+}
+
+TEST_F(TestServer, Start_BodyLimitExceeded_ClosesConnection) {
+    ServerConfig config;
+    config.http = {.enabled = true, .address = "127.0.0.1", .port = 0};
+    config.body_limit = 16;
+    config.header_limit = 1024;
+
+    Server server{database_executor, config};
+    const auto started = server.Start();
+    ASSERT_TRUE(started.has_value()) << started.error();
+
+    asio::io_context client_context;
+    asio::ip::tcp::socket socket{client_context};
+    const auto address = asio::ip::make_address("127.0.0.1");
+    socket.connect({address, server.HttpPort()});
+
+    http::request<http::string_body> request{http::verb::post, "/v1/products",
+                                             11};
+    request.body() = std::string(64, 'x');
+    request.prepare_payload();
+    request.keep_alive(false);
+    http::write(socket, request);
+
+    boost::system::error_code error;
+    std::array<char, 1> buffer{};
+    socket.read_some(asio::buffer(buffer), error);
+
+    EXPECT_TRUE(error == asio::error::eof ||
+                error == asio::error::connection_reset);
     server.Stop();
 }
 

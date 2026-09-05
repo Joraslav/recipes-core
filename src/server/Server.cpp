@@ -10,8 +10,10 @@
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/http/message_fwd.hpp>
 #include <boost/beast/http/parser.hpp>
+#include <boost/beast/http/parser_fwd.hpp>
 #include <boost/beast/http/read.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/string_body_fwd.hpp>
@@ -23,6 +25,7 @@
 #include <boost/system/error_code.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -33,6 +36,7 @@
 #include <utility>
 
 namespace beast = boost::beast;
+namespace chron = std::chrono;
 using app::DatabaseExecutor;
 using config::ServerConfig;
 
@@ -193,19 +197,28 @@ cobalt::task<void> Server::AcceptLoop() {
 
 cobalt::task<void> Server::Session(Tcp::socket socket) {
     try {
+        beast::tcp_stream stream{std::move(socket)};
         beast::flat_buffer buffer;
-        while (socket.is_open()) {
-            Request request;
+        while (stream.socket().is_open()) {
+            stream.expires_after(
+                chron::seconds{config_.request_timeout_seconds});
+            http::request_parser<http::string_body> parser;
+            parser.body_limit(config_.body_limit);
+            parser.header_limit(config_.header_limit);
             co_await http::async_read(  // NOLINT (missing-includes)
-                socket, buffer, request, cobalt::use_op);
+                stream, buffer, parser, cobalt::use_op);
+            Request request = parser.release();
 
             auto response = co_await router_.HandleAsync(std::move(request));
             const bool keep_alive = response.keep_alive();
+            stream.expires_after(
+                chron::seconds{config_.request_timeout_seconds});
             co_await http::async_write(  // NOLINT (missing-includes)
-                socket, response, cobalt::use_op);
+                stream, response, cobalt::use_op);
             if (!keep_alive) {
                 boost::system::error_code error;
-                error = socket.shutdown(Tcp::socket::shutdown_send, error);
+                error =
+                    stream.socket().shutdown(Tcp::socket::shutdown_send, error);
                 co_return;
             }
         }
@@ -228,24 +241,34 @@ cobalt::task<void> Server::AcceptHttpsLoop() {
 
 cobalt::task<void> Server::TlsSession(Tcp::socket socket) {
     try {
-        ssl::stream<Tcp::socket> stream{std::move(socket), tls_context_};
+        ssl::stream<beast::tcp_stream> stream{
+            beast::tcp_stream{std::move(socket)}, tls_context_};
+        stream.next_layer().expires_after(
+            chron::seconds{config_.request_timeout_seconds});
         co_await stream.async_handshake(ssl::stream_base::server,
                                         cobalt::use_op);
 
         beast::flat_buffer buffer;
-        while (stream.next_layer().is_open()) {
-            Request request;
+        while (stream.next_layer().socket().is_open()) {
+            stream.next_layer().expires_after(
+                chron::seconds{config_.request_timeout_seconds});
+            http::request_parser<http::string_body> parser;
+            parser.body_limit(config_.body_limit);
+            parser.header_limit(config_.header_limit);
             co_await http::async_read(  // NOLINT (missing-includes)
-                stream, buffer, request, cobalt::use_op);
+                stream, buffer, parser, cobalt::use_op);
+            Request request = parser.release();
             auto response = co_await router_.HandleAsync(std::move(request));
             const bool keep_alive = response.keep_alive();
+            stream.next_layer().expires_after(
+                chron::seconds{config_.request_timeout_seconds});
             co_await http::async_write(  // NOLINT (missing-includes)
                 stream, response, cobalt::use_op);
             if (!keep_alive) {
                 boost::system::error_code error;
-                error = stream.next_layer().shutdown(Tcp::socket::shutdown_both,
-                                                     error);
-                error = stream.next_layer().close(error);
+                error = stream.next_layer().socket().shutdown(
+                    Tcp::socket::shutdown_both, error);
+                error = stream.next_layer().socket().close(error);
                 co_return;
             }
         }
