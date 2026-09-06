@@ -98,6 +98,7 @@ namespace {
     std::string body) {
     net::http::response<net::http::string_body> response{status, version};
     response.set(net::http::field::content_type, "application/json");
+    response.set(net::http::field::x_content_type_options, "nosniff");
     response.keep_alive(keep_alive);
     response.body() = std::move(body);
     response.prepare_payload();
@@ -154,7 +155,7 @@ struct ErrorPayload final {
     const char* code = "storage_error";
     switch (error.GetCode()) {
         case ErrorCode::Validation:
-            status = net::http::status::bad_request;
+            status = net::http::status::unprocessable_entity;
             code = "validation_error";
             break;
         case ErrorCode::NotFound:
@@ -208,7 +209,7 @@ MakeMethodNotAllowedResponse(const net::Router::Request& request,
     }
     const auto dimension = ParseDimension(product_request->dimension);
     if (!dimension.has_value()) {
-        error_status = net::http::status::bad_request;
+        error_status = net::http::status::unprocessable_entity;
         error_message = "Invalid product dimension";
         return std::nullopt;
     }
@@ -230,7 +231,7 @@ MakeMethodNotAllowedResponse(const net::Router::Request& request,
     for (const auto& ingredient_request : recipe_request->ingredients) {
         const auto dimension = ParseDimension(ingredient_request.dimension);
         if (!dimension.has_value()) {
-            error_status = net::http::status::bad_request;
+            error_status = net::http::status::unprocessable_entity;
             error_message = "Invalid recipe ingredient dimension";
             return std::nullopt;
         }

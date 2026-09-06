@@ -40,7 +40,8 @@ struct meta<TlsConfig> {
     [[maybe_unused]] static constexpr auto value =
         object("certificate_path", &T::certificate_path, "private_key_path",
                &T::private_key_path, "certificate_chain_path",
-               &T::certificate_chain_path);
+               &T::certificate_chain_path, "server_name", &T::server_name,
+               "enable_hsts", &T::enable_hsts);
 };
 
 template <>
@@ -53,7 +54,8 @@ struct meta<ServerConfig> {
         &T::database_path, "network_threads", &T::network_threads,
         "database_queue_capacity", &T::database_queue_capacity, "header_limit",
         &T::header_limit, "body_limit", &T::body_limit,
-        "request_timeout_seconds", &T::request_timeout_seconds);
+        "request_timeout_seconds", &T::request_timeout_seconds,
+        "shutdown_timeout_seconds", &T::shutdown_timeout_seconds);
 };
 
 }  // namespace glz
@@ -138,6 +140,9 @@ std::expected<void, std::string> ValidateServerConfig(
     if (config.header_limit == 0 || config.body_limit == 0 ||
         config.request_timeout_seconds == 0) {
         return std::unexpected("Request limits and timeout must be positive");
+    }
+    if (config.shutdown_timeout_seconds == 0) {
+        return std::unexpected("Shutdown timeout must be positive");
     }
     if (config.https.enabled && (config.tls.certificate_path.empty() ||
                                  config.tls.private_key_path.empty())) {

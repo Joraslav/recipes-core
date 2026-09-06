@@ -3,6 +3,9 @@
 #include "app/DatabaseExecutor.hpp"
 #include "config/ServerConfig.hpp"
 
+#include <openssl/ssl.h>
+#include <openssl/tls1.h>
+
 #include <boost/asio/detached.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/socket_base.hpp>
@@ -80,7 +83,8 @@ Server::Server(DatabaseExecutor& database_executor, ServerConfig config)
 Server::~Server() { Stop(); }
 
 std::expected<void, std::string> Server::Start() {
-    if (started_) {
+    const std::scoped_lock lifecycle_lock(lifecycle_mutex_);
+    if (started_.load()) {
         return std::unexpected("Server is already started");
     }
     if (!config_.http.enabled && !config_.https.enabled) {
@@ -112,7 +116,8 @@ std::expected<void, std::string> Server::Start() {
         }
     }
 
-    started_ = true;
+    io_context_.restart();
+    started_.store(true);
     if (config_.http.enabled) {
         cobalt::spawn(io_context_, AcceptLoop(), asio::detached);
     }
@@ -158,34 +163,43 @@ std::expected<void, std::string> Server::ConfigureListener(
 }
 
 void Server::Stop() noexcept {
-    if (!started_) {
+    const std::scoped_lock lifecycle_lock(lifecycle_mutex_);
+    if (!started_.exchange(false)) {
         return;
     }
-    started_ = false;
     boost::system::error_code error;
     error = acceptor_.close(error);
     error = https_acceptor_.close(error);
     CloseSessions();
+    {
+        std::unique_lock lock(sessions_mutex_);
+        sessions_condition_.wait_for(
+            lock, chron::seconds{config_.shutdown_timeout_seconds},
+            [this] { return sessions_.empty(); });
+    }
     io_context_.stop();
     workers_.clear();
 }
 
-void Server::RegisterSession(const std::shared_ptr<Tcp::socket>& socket) {
+void Server::RegisterSession(
+    const std::shared_ptr<Server::SessionControl>& control) {
     const std::scoped_lock lock(sessions_mutex_);
-    sessions_.insert(socket);
+    sessions_.insert(control);
 }
 
-void Server::UnregisterSession(const std::shared_ptr<Tcp::socket>& socket) {
+void Server::UnregisterSession(
+    const std::shared_ptr<Server::SessionControl>& control) {
     const std::scoped_lock lock(sessions_mutex_);
-    sessions_.erase(socket);
+    sessions_.erase(control);
+    sessions_condition_.notify_all();
 }
 
 void Server::CloseSessions() noexcept {
     const std::scoped_lock lock(sessions_mutex_);
-    for (const auto& socket : sessions_) {
-        boost::system::error_code error;
-        error = socket->shutdown(Tcp::socket::shutdown_both, error);
-        error = socket->close(error);
+    for (const auto& session : sessions_) {
+        if (session->close) {
+            session->close();
+        }
     }
 }
 
@@ -215,11 +229,16 @@ std::expected<void, std::string> Server::ConfigureTls() {
     }
     try {
         tls_context_.set_options(
-            ssl::context::default_workarounds | ssl::context::no_sslv2 |
-            ssl::context::no_sslv3 | ssl::context::single_dh_use);
+            ssl::context::no_sslv2 | ssl::context::no_sslv3 |
+            ssl::context::no_tlsv1 | ssl::context::no_tlsv1_1 |
+            ssl::context::single_dh_use);
         tls_context_.use_certificate_chain_file(config_.tls.certificate_path);
         tls_context_.use_private_key_file(config_.tls.private_key_path,
                                           ssl::context::pem);
+        if (SSL_CTX_check_private_key(tls_context_.native_handle()) != 1) {
+            return std::unexpected(
+                "TLS private key does not match certificate");
+        }
         if (!config_.tls.certificate_chain_path.empty()) {
             tls_context_.load_verify_file(config_.tls.certificate_chain_path);
         }
@@ -236,9 +255,16 @@ cobalt::task<void> Server::AcceptLoop() {
             auto socket = co_await acceptor_.async_accept(cobalt::use_op);
             auto session_socket =
                 std::make_shared<Tcp::socket>(std::move(socket));
-            RegisterSession(session_socket);
-            cobalt::spawn(io_context_, Session(std::move(session_socket)),
-                          asio::detached);
+            auto control = std::make_shared<SessionControl>();
+            control->close = [session_socket] {
+                boost::system::error_code error;
+                error = session_socket->close(error);
+            };
+            RegisterSession(control);
+            cobalt::spawn(
+                io_context_,
+                Session(std::move(session_socket), std::move(control)),
+                asio::detached);
         }
     } catch (const std::exception&) {
         co_return;
@@ -246,12 +272,18 @@ cobalt::task<void> Server::AcceptLoop() {
 }
 
 cobalt::task<void> Server::Session(
-    std::shared_ptr<Tcp::socket> session_socket) {
+    std::shared_ptr<Server::Tcp::socket> session_socket,
+    std::shared_ptr<Server::SessionControl> control) {
     try {
-        beast::tcp_stream stream{std::move(*session_socket)};
+        auto stream =
+            std::make_shared<beast::tcp_stream>(std::move(*session_socket));
+        control->close = [stream] {
+            boost::system::error_code error;
+            error = stream->socket().close(error);
+        };
         beast::flat_buffer buffer;
-        while (stream.socket().is_open()) {
-            stream.expires_after(
+        while (stream->socket().is_open()) {
+            stream->expires_after(
                 chron::seconds{config_.request_timeout_seconds});
             http::request_parser<http::string_body> parser;
             parser.body_limit(config_.body_limit);
@@ -259,7 +291,7 @@ cobalt::task<void> Server::Session(
             bool payload_limit_exceeded = false;
             try {
                 co_await http::async_read(  // NOLINT (missing-includes)
-                    stream, buffer, parser, cobalt::use_op);
+                    *stream, buffer, parser, cobalt::use_op);
             } catch (const boost::system::system_error& exception) {
                 payload_limit_exceeded =
                     exception.code() ==
@@ -268,30 +300,31 @@ cobalt::task<void> Server::Session(
                         http::make_error_code(http::error::header_limit);
             }
             if (payload_limit_exceeded) {
-                co_await SendPayloadLimitResponse(std::move(stream), 11);
+                co_await SendPayloadLimitResponse(std::move(*stream), 11);
+                UnregisterSession(control);
                 co_return;
             }
             Request request = parser.release();
 
             auto response = co_await router_.HandleAsync(std::move(request));
             const bool keep_alive = response.keep_alive();
-            stream.expires_after(
+            stream->expires_after(
                 chron::seconds{config_.request_timeout_seconds});
             co_await http::async_write(  // NOLINT (missing-includes)
-                stream, response, cobalt::use_op);
+                *stream, response, cobalt::use_op);
             if (!keep_alive) {
                 boost::system::error_code error;
-                error =
-                    stream.socket().shutdown(Tcp::socket::shutdown_send, error);
-                UnregisterSession(session_socket);
+                error = stream->socket().shutdown(Tcp::socket::shutdown_send,
+                                                  error);
+                UnregisterSession(control);
                 co_return;
             }
         }
     } catch (const std::exception&) {
-        UnregisterSession(session_socket);
+        UnregisterSession(control);
         co_return;
     }
-    UnregisterSession(session_socket);
+    UnregisterSession(control);
 }
 
 cobalt::task<void> Server::AcceptHttpsLoop() {
@@ -300,9 +333,16 @@ cobalt::task<void> Server::AcceptHttpsLoop() {
             auto socket = co_await https_acceptor_.async_accept(cobalt::use_op);
             auto session_socket =
                 std::make_shared<Tcp::socket>(std::move(socket));
-            RegisterSession(session_socket);
-            cobalt::spawn(io_context_, TlsSession(std::move(session_socket)),
-                          asio::detached);
+            auto control = std::make_shared<SessionControl>();
+            control->close = [session_socket] {
+                boost::system::error_code error;
+                error = session_socket->close(error);
+            };
+            RegisterSession(control);
+            cobalt::spawn(
+                io_context_,
+                TlsSession(std::move(session_socket), std::move(control)),
+                asio::detached);
         }
     } catch (const std::exception&) {
         co_return;
@@ -310,18 +350,34 @@ cobalt::task<void> Server::AcceptHttpsLoop() {
 }
 
 cobalt::task<void> Server::TlsSession(
-    std::shared_ptr<Tcp::socket> session_socket) {
+    std::shared_ptr<Server::Tcp::socket> session_socket,
+    std::shared_ptr<Server::SessionControl> control) {
     try {
-        ssl::stream<beast::tcp_stream> stream{
-            beast::tcp_stream{std::move(*session_socket)}, tls_context_};
-        stream.next_layer().expires_after(
+        auto stream = std::make_shared<ssl::stream<beast::tcp_stream>>(
+            beast::tcp_stream{std::move(*session_socket)}, tls_context_);
+        control->close = [stream] {
+            boost::system::error_code error;
+            error = stream->next_layer().socket().close(error);
+        };
+        stream->next_layer().expires_after(
             chron::seconds{config_.request_timeout_seconds});
-        co_await stream.async_handshake(ssl::stream_base::server,
-                                        cobalt::use_op);
+        co_await stream->async_handshake(ssl::stream_base::server,
+                                         cobalt::use_op);
+        if (!config_.tls.server_name.empty()) {
+            const char* server_name = SSL_get_servername(
+                stream->native_handle(), TLSEXT_NAMETYPE_host_name);
+            if (server_name == nullptr ||
+                config_.tls.server_name != server_name) {
+                boost::system::error_code error;
+                error = stream->next_layer().socket().close(error);
+                UnregisterSession(control);
+                co_return;
+            }
+        }
 
         beast::flat_buffer buffer;
-        while (stream.next_layer().socket().is_open()) {
-            stream.next_layer().expires_after(
+        while (stream->next_layer().socket().is_open()) {
+            stream->next_layer().expires_after(
                 chron::seconds{config_.request_timeout_seconds});
             http::request_parser<http::string_body> parser;
             parser.body_limit(config_.body_limit);
@@ -329,7 +385,7 @@ cobalt::task<void> Server::TlsSession(
             bool payload_limit_exceeded = false;
             try {
                 co_await http::async_read(  // NOLINT (missing-includes)
-                    stream, buffer, parser, cobalt::use_op);
+                    *stream, buffer, parser, cobalt::use_op);
             } catch (const boost::system::system_error& exception) {
                 payload_limit_exceeded =
                     exception.code() ==
@@ -338,30 +394,35 @@ cobalt::task<void> Server::TlsSession(
                         http::make_error_code(http::error::header_limit);
             }
             if (payload_limit_exceeded) {
-                co_await SendPayloadLimitResponse(std::move(stream), 11);
+                co_await SendPayloadLimitResponse(std::move(*stream), 11);
+                UnregisterSession(control);
                 co_return;
             }
             Request request = parser.release();
             auto response = co_await router_.HandleAsync(std::move(request));
+            if (config_.tls.enable_hsts) {
+                response.set(http::field::strict_transport_security,
+                             "max-age=31536000; includeSubDomains");
+            }
             const bool keep_alive = response.keep_alive();
-            stream.next_layer().expires_after(
+            stream->next_layer().expires_after(
                 chron::seconds{config_.request_timeout_seconds});
             co_await http::async_write(  // NOLINT (missing-includes)
-                stream, response, cobalt::use_op);
+                *stream, response, cobalt::use_op);
             if (!keep_alive) {
                 boost::system::error_code error;
-                error = stream.next_layer().socket().shutdown(
+                error = stream->next_layer().socket().shutdown(
                     Tcp::socket::shutdown_both, error);
-                error = stream.next_layer().socket().close(error);
-                UnregisterSession(session_socket);
+                error = stream->next_layer().socket().close(error);
+                UnregisterSession(control);
                 co_return;
             }
         }
     } catch (const std::exception&) {
-        UnregisterSession(session_socket);
+        UnregisterSession(control);
         co_return;
     }
-    UnregisterSession(session_socket);
+    UnregisterSession(control);
 }
 
 }  // namespace net

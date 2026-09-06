@@ -11,8 +11,11 @@
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <boost/cobalt/task.hpp>
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -69,20 +72,23 @@ class Server final {
     [[nodiscard]] uint16_t HttpsPort() const noexcept;
 
  private:
+    struct SessionControl;
     using Tcp = asio::ip::tcp;
 
     [[nodiscard]] cobalt::task<void> AcceptLoop();
     [[nodiscard]] cobalt::task<void> Session(
-        std::shared_ptr<Tcp::socket> socket);
+        std::shared_ptr<Tcp::socket> socket,
+        std::shared_ptr<SessionControl> control);
     [[nodiscard]] cobalt::task<void> AcceptHttpsLoop();
     [[nodiscard]] cobalt::task<void> TlsSession(
-        std::shared_ptr<Tcp::socket> socket);
+        std::shared_ptr<Tcp::socket> socket,
+        std::shared_ptr<SessionControl> control);
     [[nodiscard]] std::expected<void, std::string> ConfigureTls();
     [[nodiscard]] static std::expected<void, std::string> ConfigureListener(
         Tcp::acceptor& acceptor, const config::ListenerConfig& config,
         std::string_view protocol);
-    void RegisterSession(const std::shared_ptr<Tcp::socket>& socket);
-    void UnregisterSession(const std::shared_ptr<Tcp::socket>& socket);
+    void RegisterSession(const std::shared_ptr<SessionControl>& control);
+    void UnregisterSession(const std::shared_ptr<SessionControl>& control);
     void CloseSessions() noexcept;
 
     app::DatabaseExecutor* database_executor_;
@@ -93,9 +99,14 @@ class Server final {
     ssl::context tls_context_;
     Router router_;
     std::vector<std::jthread> workers_;
+    std::mutex lifecycle_mutex_;
     std::mutex sessions_mutex_;
-    std::unordered_set<std::shared_ptr<Tcp::socket>> sessions_;
-    bool started_{false};
+    std::condition_variable sessions_condition_;
+    struct SessionControl final {
+        std::function<void()> close;
+    };
+    std::unordered_set<std::shared_ptr<SessionControl>> sessions_;
+    std::atomic_bool started_{false};
 };
 
 }  // namespace net

@@ -24,6 +24,8 @@ struct TlsConfig final {
     std::string certificate_path;
     std::string private_key_path;
     std::string certificate_chain_path;
+    std::string server_name;
+    bool enable_hsts{false};
 };
 
 /**
@@ -41,6 +43,7 @@ struct ServerConfig final {
     size_t header_limit{8192};
     size_t body_limit{1048576};
     uint32_t request_timeout_seconds{30};
+    uint32_t shutdown_timeout_seconds{5};
 };
 
 /**
